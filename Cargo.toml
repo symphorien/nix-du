@@ -3,7 +3,10 @@ name = "nix-du"
 version = "0.1.0"
 authors = ["Symphorien Gibol <symphorien+git@xlumurb.eu>"]
 
+# otherwise we get an unhelpful panic unwind when a c++ execption is raised.
 [profile.dev]
+panic = "abort"
+[profile.release]
 panic = "abort"
 
 [build-dependencies]
