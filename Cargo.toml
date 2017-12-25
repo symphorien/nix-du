@@ -1,0 +1,13 @@
+[package]
+name = "nix-du"
+version = "0.1.0"
+authors = ["Symphorien Gibol <symphorien+git@xlumurb.eu>"]
+
+[profile.dev]
+panic = "abort"
+
+[build-dependencies]
+bindgen = "0.32"
+cc = "1.0"
+
+[dependencies]
