@@ -19,8 +19,12 @@ pub struct Path {
 }
 
 #[derive(Debug)]
-pub struct PathIterator<'a> {
-    store: &'a mut Store,
+pub struct PathEntry {
+    path: nix_Path
+}
+
+#[derive(Debug)]
+pub struct PathIterator {
     set: nix_PathSet,
     size: usize,
     cur: usize,
@@ -30,11 +34,11 @@ pub struct PathIterator<'a> {
 
 pub type PathId = std::os::raw::c_ulonglong;
 
-impl<'a> PathIterator<'a> {
-    unsafe fn new(store: &'a mut Store, set: nix_PathSet) -> Self {
+impl PathIterator {
+    unsafe fn new(store: &mut Store, set: nix_PathSet) -> Self {
         let it = nix_adapter_begin_path_set(set);
         let size = nix_adapter_size_path_set(set);
-        PathIterator { store, it, size, cur: 0, set }
+        PathIterator { it, size, cur: 0, set }
     }
 }
 
@@ -52,14 +56,20 @@ impl Path {
         self.pi.id
     }
 
-    pub fn deps<'a>(&'a self, store: &'a mut Store) -> PathIterator<'a> {
+    pub fn deps<'a>(&'a self, store: &'a mut Store) -> PathIterator {
         let set = self.pi.references;
         unsafe { PathIterator::new(store, set) }
     }
 }
 
-impl<'a> Iterator for PathIterator<'a> {
-    type Item = Path;
+impl PathEntry {
+    pub fn to_path(&self, store: &mut Store) -> Path {
+        unsafe { Path::new_from_ffi(store, self.path) }
+    }
+}
+
+impl Iterator for PathIterator {
+    type Item = PathEntry;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.cur+=1;
@@ -67,10 +77,19 @@ impl<'a> Iterator for PathIterator<'a> {
             None
         } else {
             let path = unsafe { nix_adapter_dereference_path_set_it(self.it) };
-            let p = unsafe { Path::new_from_ffi(self.store, path) };
             self.it = unsafe { nix_adapter_inc_path_set_it(self.it) };
-            Some(p)
+            Some(PathEntry { path })
         }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.size, Some(self.size))
+    }
+}
+
+impl ExactSizeIterator for PathIterator {
+    fn len(&self) -> usize {
+        self.size
     }
 }
 

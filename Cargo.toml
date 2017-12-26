@@ -14,3 +14,4 @@ bindgen = "0.32"
 cc = "1.0"
 
 [dependencies]
+petgraph = "0.4"
