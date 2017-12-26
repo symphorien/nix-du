@@ -12,11 +12,35 @@
 namespace nix_adapter {
   using namespace nix;
 
-  typedef PathSet::iterator PathSetIterator;
-
   const char* path_to_c_str(const Path& p) {
     return p.c_str();
   }
+  
+  typedef Roots::const_iterator RootsIterator;
+
+  RootsIterator begin_roots(const Roots ps) {
+    return ps.begin();
+  }
+
+  size_t size_roots(const Roots ps) {
+    return ps.size();
+  }
+
+  // bindgen replaces Roots::iterator by u8 which is Copy.
+  // we cannot mutate it.
+  RootsIterator inc_roots_it(RootsIterator it) {
+    it++;
+    return it;
+  }
+
+  Path dereference_first_roots_it(const Roots::iterator it) {
+    return it->first;
+  }
+  Path dereference_second_roots_it(const Roots::iterator it) {
+    return it->second;
+  }
+
+  typedef PathSet::iterator PathSetIterator;
 
   PathSet::iterator begin_path_set(const PathSet ps) {
     return ps.begin();
@@ -32,12 +56,6 @@ namespace nix_adapter {
     it++;
     return it;
   }
-
-  /*
-  bool is_end_path_set_it(const PathSet& ps, const PathSet::iterator it) {
-    return it == ps.end();
-  }
-  */
 
   Path dereference_path_set_it(const PathSet::iterator it) {
     return *it;

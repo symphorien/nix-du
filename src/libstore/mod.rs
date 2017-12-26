@@ -1,8 +1,8 @@
 mod bindings;
 
 use libstore::bindings::*;
-use std;
 use std::os::raw::c_void;
+use std::ffi::{CStr, CString};
 
 pub fn init_nix() {
     unsafe { nix_initNix() };
@@ -15,7 +15,8 @@ pub struct Store {
 
 #[derive(Debug)]
 pub struct Path {
-    pi: nix_ValidPathInfo
+    pi: nix_ValidPathInfo,
+    path: CString
 }
 
 #[derive(Debug)]
@@ -28,14 +29,19 @@ pub struct PathIterator {
     set: nix_PathSet,
     size: usize,
     cur: usize,
-    it: nix_adapter_PathSetIterator // made opaque by bindgen; std::set<std::string>::iterator
-
+    it: nix_adapter_PathSetIterator
 }
 
-pub type PathId = std::os::raw::c_ulonglong;
+#[derive(Debug)]
+pub struct RootsIterator {
+    map: nix_Roots,
+    size: usize,
+    cur: usize,
+    it: nix_adapter_RootsIterator
+}
 
 impl PathIterator {
-    unsafe fn new(store: &mut Store, set: nix_PathSet) -> Self {
+    unsafe fn new(set: nix_PathSet) -> Self {
         let it = nix_adapter_begin_path_set(set);
         let size = nix_adapter_size_path_set(set);
         PathIterator { it, size, cur: 0, set }
@@ -48,17 +54,17 @@ impl Path {
             &mut store.s as *mut _ as *mut c_void,
             &path as *const _
             );
-        // TODO: we are done with this string I guess
-        Path { pi : infos }
+        let realpath = CStr::from_ptr(nix_adapter_path_to_c_str(&path as *const _));
+        Path { pi : infos, path: realpath.to_owned() }
     }
 
-    pub fn id(&self) -> PathId {
-        self.pi.id
+    pub fn path(&self) -> &CString {
+        &self.path
     }
 
-    pub fn deps<'a>(&'a self, store: &'a mut Store) -> PathIterator {
+    pub fn deps(&self) -> PathIterator {
         let set = self.pi.references;
-        unsafe { PathIterator::new(store, set) }
+        unsafe { PathIterator::new(set) }
     }
 }
 
@@ -93,6 +99,43 @@ impl ExactSizeIterator for PathIterator {
     }
 }
 
+impl RootsIterator {
+    unsafe fn new(map: nix_Roots) -> Self {
+        let it = nix_adapter_begin_roots(map);
+        let size = nix_adapter_size_roots(map);
+        RootsIterator { it, size, cur: 0, map }
+    }
+}
+
+impl Iterator for RootsIterator {
+    type Item = (CString, PathEntry);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.cur+=1;
+        if self.cur > self.size {
+            None
+        } else {
+            let link = unsafe { nix_adapter_dereference_first_roots_it(self.it) };
+            let realpath = unsafe {
+                CStr::from_ptr(nix_adapter_path_to_c_str(&link as *const _))
+            };
+            let path = unsafe { nix_adapter_dereference_second_roots_it(self.it) };
+            self.it = unsafe { nix_adapter_inc_roots_it(self.it) };
+            Some((realpath.to_owned(), PathEntry { path }))
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        (self.size, Some(self.size))
+    }
+}
+
+impl ExactSizeIterator for RootsIterator {
+    fn len(&self) -> usize {
+        self.size
+    }
+}
+
 impl Store {
     pub fn new() -> Self {
         unsafe {
@@ -104,7 +147,14 @@ impl Store {
         let set = unsafe {
             nix_RemoteStore_queryAllValidPaths(self as *mut _ as *mut c_void)
         };
-        unsafe { PathIterator::new(self, set) }
+        unsafe { PathIterator::new(set) }
+    }
+
+    pub fn roots(&mut self) -> RootsIterator {
+        let map = unsafe {
+            nix_RemoteStore_findRoots(self as *mut _ as *mut c_void)
+        };
+        unsafe { RootsIterator::new(map) }
     }
 }
 
