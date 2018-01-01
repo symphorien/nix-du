@@ -1,6 +1,6 @@
 mod bindings;
 
-use libstore::bindings::*;
+use bindings::*;
 use std::os::raw::c_void;
 use std::ffi::{CStr, CString};
 

@@ -1,0 +1,8 @@
+[package]
+name = "libstore"
+version = "0.1.0"
+authors = ["Symphorien Gibol <symphorien+git@xlumurb.eu>"]
+
+[build-dependencies]
+bindgen = "0.32"
+cc = "1.0"

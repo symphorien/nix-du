@@ -1,6 +1,6 @@
 extern crate petgraph;
+extern crate libstore;
 
-mod libstore;
 mod depgraph;
 
 use petgraph::dot::{Dot, Config};

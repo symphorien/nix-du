@@ -1,6 +1,6 @@
 extern crate petgraph;
+extern crate libstore;
 
-use libstore;
 use std::collections;
 use std::vec::Vec;
 use std::ffi::CString;

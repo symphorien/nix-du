@@ -9,9 +9,8 @@ panic = "abort"
 [profile.release]
 panic = "abort"
 
-[build-dependencies]
-bindgen = "0.32"
-cc = "1.0"
+[workspace]
 
 [dependencies]
 petgraph = "0.4"
+libstore = { path = "libstore" }

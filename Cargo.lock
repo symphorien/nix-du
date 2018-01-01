@@ -2,8 +2,7 @@
 name = "nix-du"
 version = "0.1.0"
 dependencies = [
- "bindgen 0.32.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "cc 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "libstore 0.1.0",
  "petgraph 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -141,6 +140,14 @@ dependencies = [
  "kernel32-sys 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "libstore"
+version = "0.1.0"
+dependencies = [
+ "bindgen 0.32.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cc 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
