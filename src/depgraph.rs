@@ -4,7 +4,9 @@ extern crate libstore;
 use std::collections;
 use std::vec::Vec;
 use petgraph::prelude::NodeIndex;
+use petgraph::visit::IntoNodeReferences;
 use std::ffi::CString;
+use std;
 use petgraph::Direction::Outgoing;
 
 #[derive(Debug)]
@@ -29,6 +31,13 @@ impl Derivation {
             path: p,
             size: size,
             is_root: true,
+        }
+    }
+    fn dummy() -> Self {
+        Derivation {
+            path: CString::default(),
+            size: 0,
+            is_root: false,
         }
     }
 }
@@ -144,6 +153,7 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
     for v in &articulations {
         g[*v] = *v;
     }
+    let new_size = articulations.len();
     let mut queue = articulations;
     loop {
         let v = match queue.pop() {
@@ -166,26 +176,30 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
     //println!("{:?}", Dot::with_config(&g, &[Config::EdgeNoLabel]));
 
     // now remove spurious elements from the original graph.
-    // we take into advantage that indices are shared through a map call.
+    // removing nodes is slow, so we create a new graph for that.
+    let mut new_ids = collections::BTreeMap::new();
+    let mut new_graph = DepGraph::with_capacity(new_size, new_size);
+    for (idx, w) in g.node_references() {
+        if idx == *w {
+            let mut dummy = Derivation::dummy();
+            std::mem::swap(&mut dummy, &mut di.graph[idx]);
+            let new_node = new_graph.add_node(dummy);
+            new_ids.insert(idx, new_node);
+        }
+    }
     for edge in g.raw_edges() {
         let from = g[edge.source()];
         let to = g[edge.target()];
         if from != NodeIndex::end() && to != NodeIndex::end() && from != to {
-            di.graph.update_edge(from, to, ());
+            new_graph.update_edge(new_ids[&from], new_ids[&to], ());
         }
     }
-    di.graph.retain_nodes( | _, idx | { g[idx] == idx } );
-    /*
-       }
-       */
+
+    di.graph = new_graph;
+    di.roots = di.graph.node_references().filter_map(|(idx, node)| {
+        if node.is_root { Some(idx) } else { None }
+    }).collect();
 
     di
 }
-
-
-
-
-
-
-
 
