@@ -6,7 +6,8 @@ use std::vec::Vec;
 use petgraph::prelude::NodeIndex;
 use std::ffi::CString;
 use petgraph::Direction::Outgoing;
-use petgraph::dot::{Dot, Config};
+//use std::iter::FromIterator;
+//use petgraph::dot::{Dot, Config};
 
 type Derivation = CString;
 type Edge = ();
@@ -48,7 +49,7 @@ pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
             g.add_edge(node, childnode, ());
         }
     }
-    
+
     let roots_it = store.roots();
     let mut roots = Vec::with_capacity(roots_it.len());
     for (link, path) in roots_it {
@@ -68,22 +69,41 @@ pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
 /// Let the input graph be `G=(V, E)`. This function returns the graph
 /// `(V', E')` where `V'` is the quotient of `V` by the equivalence relation 
 /// "two vertices are equivalent if they have the same image by `roots`"
-///  and and edge is in `E'` if there are vertices in the source and target
-///  equivalence class which have a corresponding edge in `G`.
-///  
+/// and and edge is in `E'` if there are vertices in the source and target
+/// equivalence class which have a corresponding edge in `G`.
+///
+/// Well, in reality, there is no unique topmost representent, so we keep
+/// several ones, but you get the idea.
+///
 /// Complexity: Linear time and space.
+///
+/// Expected simplification: as I write theses lines, on my store (NixOS, 37G)
+/// * before, n=50714, m=338659
+/// * after, n=4689, m=32722
 pub fn condense(mut di: DepInfos) -> DepInfos {
     // compute articulation points, ie topmost representents of every equivalence
     // class except roots
+
     let mut articulations = di.roots.clone();
+    /*
+       {
+       let interesting = 
+       collections::BTreeSet::from_iter(
+       (&di.roots).iter().filter(|v| {
+       di.graph[**v].to_bytes()[1..10] != b"nix/store"[..]
+       })
+       );
+
+*/
 
     let mut g = di.graph.map(
         |_, _| { NodeIndex::end() },
         |_, _| { () }
         );
 
-    for (i, root) in di.roots.iter().enumerate().map(|(i, x)| { (NodeIndex::from(i as petgraph::graph::DefaultIx), x) }) {
-        let mut queue = vec!(*root);
+    for root in (&di.roots).iter().cloned() {
+        let mut queue = vec!(root);
+        g[root] = root;
         loop {
             let v = match queue.pop() {
                 None => break,
@@ -91,15 +111,24 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
             };
             let mut n = g.neighbors_directed(v, Outgoing).detach();
             while let Some(w) = n.next_node(&g) {
-                let state = g.node_weight_mut(v).unwrap();
-                if *state < i {
+                if w == v { continue; }
+                if g[w] == NodeIndex::end() {
+                    /*
+                       if interesting.contains(&root) {
+                       eprintln!("Node {:?}({:?}) is appended to direct class of {:?}({:?})", w, di.graph[w], root, di.graph[root]);
+                       }
+                       */
+                    queue.push(w);
+                    g[w] = root;
+                } else if g[w] != root {
                     // dependence of another root
                     articulations.push(w);
-                    //eprintln!("Node {:?} is a dependence of {:?} and {:?}", w, *state, i);
+                    /*
+                    if interesting.contains(&root) || interesting.contains(&g[w]) {
+                        eprintln!("Node {:?}({:?}) is an articulation between {:?}({:?}) and {:?}({:?})", w, di.graph[w], g[w], di.graph[g[w]], root, di.graph[root]);
+                    }
+                    */
                     // stop exploration
-                } else if *state == NodeIndex::end() {
-                    *state = i;
-                    queue.push(w);
                 }
             }
         }
@@ -121,7 +150,11 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
         let current = g[v];
         let mut n = g.neighbors_directed(v, Outgoing).detach();
         while let Some(w) = n.next_node(&g) {
-            //eprintln!("{:?}(color {:?}, {:?}) is a parent of {:?} (color {:?}, {:?})", v, current,di.graph[v], w, g[w], di.graph[w]);
+            /*
+               if interesting.contains(&current) {
+               eprintln!("{:?}(color {:?}, {:?}) is a parent of {:?} (color {:?}, {:?})", v, icurrent, di.graph[current],di.graph[v], w, g[w], di.graph[w]);
+               }
+               */
             if g[w] == NodeIndex::end() {
                 // not yet visited
                 g[w] = current;
@@ -143,6 +176,9 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
         }
     }
     di.graph.retain_nodes( | _, idx | { g[idx] == idx } );
+    /*
+       }
+       */
 
     di
 }
