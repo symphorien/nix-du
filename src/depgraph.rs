@@ -6,11 +6,34 @@ use std::vec::Vec;
 use petgraph::prelude::NodeIndex;
 use std::ffi::CString;
 use petgraph::Direction::Outgoing;
-//use std::iter::FromIterator;
-//use petgraph::dot::{Dot, Config};
 
-type Derivation = CString;
-type Edge = ();
+#[derive(Debug)]
+pub struct Derivation {
+    pub path: CString,
+    pub size: u64,
+    pub is_root: bool,
+}
+
+impl Derivation {
+    /// Note: clones the string describing the path.
+    pub fn new_inner(p: &libstore::Path) -> Self {
+        Derivation {
+            path: p.path().clone(),
+            size: p.size(),
+            is_root: false,
+        }
+    }
+    pub fn new_root(p: CString) -> Self {
+        let size = p.to_bytes().len() as u64; // good approximation for symlinks
+        Derivation {
+            path: p,
+            size: size,
+            is_root: true,
+        }
+    }
+}
+
+pub type Edge = ();
 
 pub type DepGraph = petgraph::graph::Graph<Derivation, Edge, petgraph::Directed>;
 
@@ -26,8 +49,8 @@ pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
     let mut queue = Vec::new();
     for pe in valid_paths {
         let path = pe.to_path(store);
-        let node = g.add_node(path.path().to_owned());
-        path_to_node.insert(path.path().to_owned(), node);
+        let node = g.add_node(Derivation::new_inner(&path));
+        path_to_node.insert(path.path().clone(), node);
         queue.push((node, path));
     }
     while !queue.is_empty() {
@@ -35,11 +58,11 @@ pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
         for dep in path.deps() {
             let child = dep.to_path(store);
             //eprintln!("{:?} child of {:?}", child.path(), path.path());
-            let entry = path_to_node.entry(child.path().to_owned());
+            let entry = path_to_node.entry(child.path().clone());
             let childnode =
                 match entry {
                     collections::hash_map::Entry::Vacant(e) => {
-                        let new_node = g.add_node(child.path().to_owned());
+                        let new_node = g.add_node(Derivation::new_inner(&child));
                         e.insert(new_node);
                         queue.push((new_node, child));
                         new_node
@@ -54,7 +77,7 @@ pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
     let mut roots = Vec::with_capacity(roots_it.len());
     for (link, path) in roots_it {
         let destnode = path_to_node[path.to_path(store).path()];
-        let fromnode = g.add_node(link);
+        let fromnode = g.add_node(Derivation::new_root(link));
         g.add_edge(fromnode, destnode, ());
         roots.push(fromnode);
     }
@@ -85,16 +108,6 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
     // class except roots
 
     let mut articulations = di.roots.clone();
-    /*
-       {
-       let interesting = 
-       collections::BTreeSet::from_iter(
-       (&di.roots).iter().filter(|v| {
-       di.graph[**v].to_bytes()[1..10] != b"nix/store"[..]
-       })
-       );
-
-*/
 
     let mut g = di.graph.map(
         |_, _| { NodeIndex::end() },
@@ -113,21 +126,11 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
             while let Some(w) = n.next_node(&g) {
                 if w == v { continue; }
                 if g[w] == NodeIndex::end() {
-                    /*
-                       if interesting.contains(&root) {
-                       eprintln!("Node {:?}({:?}) is appended to direct class of {:?}({:?})", w, di.graph[w], root, di.graph[root]);
-                       }
-                       */
                     queue.push(w);
                     g[w] = root;
                 } else if g[w] != root {
                     // dependence of another root
                     articulations.push(w);
-                    /*
-                    if interesting.contains(&root) || interesting.contains(&g[w]) {
-                        eprintln!("Node {:?}({:?}) is an articulation between {:?}({:?}) and {:?}({:?})", w, di.graph[w], g[w], di.graph[g[w]], root, di.graph[root]);
-                    }
-                    */
                     // stop exploration
                 }
             }
@@ -150,14 +153,10 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
         let current = g[v];
         let mut n = g.neighbors_directed(v, Outgoing).detach();
         while let Some(w) = n.next_node(&g) {
-            /*
-               if interesting.contains(&current) {
-               eprintln!("{:?}(color {:?}, {:?}) is a parent of {:?} (color {:?}, {:?})", v, icurrent, di.graph[current],di.graph[v], w, g[w], di.graph[w]);
-               }
-               */
             if g[w] == NodeIndex::end() {
                 // not yet visited
                 g[w] = current;
+                di.graph[current].size += di.graph[w].size;
                 queue.push(w);
             }
             assert_ne!(g[w], NodeIndex::end());

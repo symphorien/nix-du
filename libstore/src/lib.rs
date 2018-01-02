@@ -66,6 +66,10 @@ impl Path {
         let set = self.pi.references;
         unsafe { PathIterator::new(set) }
     }
+
+    pub fn size(&self) -> u64 {
+        self.pi.narSize
+    }
 }
 
 impl PathEntry {
