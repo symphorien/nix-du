@@ -2,8 +2,8 @@ extern crate petgraph;
 extern crate libstore;
 
 mod depgraph;
-
-use petgraph::dot::{Dot, Config};
+mod dot;
+use std::io;
 
 fn main() {
     libstore::init_nix();
@@ -12,5 +12,11 @@ fn main() {
     eprintln!("The graph before has n={}, m={}", g.graph.node_count(), g.graph.edge_count());
     let g = depgraph::condense(g);
     eprintln!("The graph after has n={}, m={}", g.graph.node_count(), g.graph.edge_count());
-    println!("{:?}", Dot::with_config(&g.graph, &[Config::EdgeNoLabel]));
+
+    {
+    let stdout = io::stdout();
+    let mut handle = stdout.lock();
+    dot::render(&g, &mut handle).expect("Cannot write to stdout");
+    }
+
 }
