@@ -14,12 +14,22 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
     w.write_all(b"\n};\n")?;
     w.write_all(b"node [shape = circle];\n")?;
     for (idx, node) in dependencies.graph.node_references() {
-        writeln!(w, "N{}[label={:?},narsize={}];", idx.index(), node.path, node.size)?;
+        writeln!(
+            w,
+            "N{}[label={:?},narsize={}];",
+            idx.index(),
+            node.path,
+            node.size
+        )?;
     }
     for edge in dependencies.graph.raw_edges() {
-        writeln!(w, "N{} -> N{};", edge.source().index(), edge.target().index())?;
+        writeln!(
+            w,
+            "N{} -> N{};",
+            edge.source().index(),
+            edge.target().index()
+        )?;
     }
     w.write_all(b"}\n")?;
     Ok(())
 }
-

@@ -48,7 +48,7 @@ pub type DepGraph = petgraph::graph::Graph<Derivation, Edge, petgraph::Directed>
 
 pub struct DepInfos {
     pub graph: DepGraph,
-    pub roots: Vec<NodeIndex>
+    pub roots: Vec<NodeIndex>,
 }
 
 pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
@@ -68,16 +68,15 @@ pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
             let child = dep.to_path(store);
             //eprintln!("{:?} child of {:?}", child.path(), path.path());
             let entry = path_to_node.entry(child.path().clone());
-            let childnode =
-                match entry {
-                    collections::hash_map::Entry::Vacant(e) => {
-                        let new_node = g.add_node(Derivation::new_inner(&child));
-                        e.insert(new_node);
-                        queue.push((new_node, child));
-                        new_node
-                    },
-                    collections::hash_map::Entry::Occupied(e) => *e.get()
-                };
+            let childnode = match entry {
+                collections::hash_map::Entry::Vacant(e) => {
+                    let new_node = g.add_node(Derivation::new_inner(&child));
+                    e.insert(new_node);
+                    queue.push((new_node, child));
+                    new_node
+                }
+                collections::hash_map::Entry::Occupied(e) => *e.get(),
+            };
             g.add_edge(node, childnode, ());
         }
     }
@@ -92,14 +91,14 @@ pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
     }
 
     g.shrink_to_fit();
-    DepInfos{ graph: g, roots }
+    DepInfos { graph: g, roots }
 }
 
 /// Computes a sort of condensation of the graph.
-/// 
+///
 /// Precisely, let `roots(v)` be the set of roots depending on a vertex `v`.
 /// Let the input graph be `G=(V, E)`. This function returns the graph
-/// `(V', E')` where `V'` is the quotient of `V` by the equivalence relation 
+/// `(V', E')` where `V'` is the quotient of `V` by the equivalence relation
 /// "two vertices are equivalent if they have the same image by `roots`"
 /// and and edge is in `E'` if there are vertices in the source and target
 /// equivalence class which have a corresponding edge in `G`.
@@ -118,22 +117,21 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
 
     let mut articulations = di.roots.clone();
 
-    let mut g = di.graph.map(
-        |_, _| { NodeIndex::end() },
-        |_, _| { () }
-        );
+    let mut g = di.graph.map(|_, _| NodeIndex::end(), |_, _| ());
 
     for root in (&di.roots).iter().cloned() {
-        let mut queue = vec!(root);
+        let mut queue = vec![root];
         g[root] = root;
         loop {
             let v = match queue.pop() {
                 None => break,
-                Some(v) => v
+                Some(v) => v,
             };
             let mut n = g.neighbors_directed(v, Outgoing).detach();
             while let Some(w) = n.next_node(&g) {
-                if w == v { continue; }
+                if w == v {
+                    continue;
+                }
                 if g[w] == NodeIndex::end() {
                     queue.push(w);
                     g[w] = root;
@@ -158,7 +156,7 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
     loop {
         let v = match queue.pop() {
             None => break,
-            Some(v) => v
+            Some(v) => v,
         };
         let current = g[v];
         let mut n = g.neighbors_directed(v, Outgoing).detach();
@@ -196,10 +194,10 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
     }
 
     di.graph = new_graph;
-    di.roots = di.graph.node_references().filter_map(|(idx, node)| {
-        if node.is_root { Some(idx) } else { None }
-    }).collect();
+    di.roots = di.graph
+        .node_references()
+        .filter_map(|(idx, node)| if node.is_root { Some(idx) } else { None })
+        .collect();
 
     di
 }
-
