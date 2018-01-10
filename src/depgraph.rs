@@ -201,3 +201,57 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
 
     di
 }
+
+pub fn condense_exact(mut di: DepInfos) -> DepInfos {
+    let mut g = di.graph.map(|_, _| 0u16, |_, _| ());
+
+    // label each node with the number of roots it is a dependence of
+    for root in (&di.roots).iter().cloned() {
+        let mut bfs = petgraph::visit::Bfs::new(&g, root);
+        while let Some(nx) = bfs.next(&g) {
+            g[nx] += 1;
+        }
+    }
+
+    // compute equivalence classes
+    let mut uf = petgraph::unionfind::UnionFind::new(g.node_count());
+    for edge in g.raw_edges() {
+        // parent and child are in the same class iff they have the same label
+        if g[edge.source()] == g[edge.target()] {
+            uf.union(edge.source().index(), edge.target().index());
+        }
+    }
+
+    // now remove spurious elements from the original graph.
+    // removing nodes is slow, so we create a new graph for that.
+    let mut new_ids = collections::BTreeMap::new();
+    let mut new_graph = DepGraph::new();
+    for (idx, _) in g.node_references() {
+        let representative = NodeIndex::from(uf.find_mut(idx.index()));
+        let new_node = new_ids.entry(representative).or_insert_with(|| {
+            new_graph.add_node(Derivation::dummy())
+        });
+        let origw = &mut di.graph[idx];
+        let neww = &mut new_graph[*new_node];
+        if origw.is_root || (!neww.is_root && neww.size < origw.size) {
+            std::mem::swap(origw, neww);
+        }
+    }
+    for (idx, w) in di.graph.node_references() {
+        let representative = NodeIndex::from(uf.find(idx.index()));
+        new_graph[new_ids[&representative]].size += w.size;
+    }
+    for edge in g.raw_edges() {
+        let from = NodeIndex::from(uf.find(edge.source().index()));
+        let to = NodeIndex::from(uf.find(edge.target().index()));
+        new_graph.update_edge(new_ids[&from], new_ids[&to], ());
+    }
+
+    di.graph = new_graph;
+    di.roots = di.graph
+        .node_references()
+        .filter_map(|(idx, node)| if node.is_root { Some(idx) } else { None })
+        .collect();
+
+    di
+}

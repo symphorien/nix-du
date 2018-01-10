@@ -20,6 +20,12 @@ fn main() {
         g.graph.node_count(),
         g.graph.edge_count()
     );
+    let g = depgraph::condense_exact(g);
+    eprintln!(
+        "The graph after² has n={}, m={}",
+        g.graph.node_count(),
+        g.graph.edge_count()
+    );
 
     {
         let stdout = io::stdout();
