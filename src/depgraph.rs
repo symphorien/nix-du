@@ -94,23 +94,11 @@ pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
     DepInfos { graph: g, roots }
 }
 
-/// Computes a sort of condensation of the graph.
-///
-/// Precisely, let `roots(v)` be the set of roots depending on a vertex `v`.
-/// Let the input graph be `G=(V, E)`. This function returns the graph
-/// `(V', E')` where `V'` is the quotient of `V` by the equivalence relation
-/// "two vertices are equivalent if they have the same image by `roots`"
-/// and and edge is in `E'` if there are vertices in the source and target
-/// equivalence class which have a corresponding edge in `G`.
-///
-/// Well, in reality, there is no unique topmost representent, so we keep
-/// several ones, but you get the idea.
+/// Returns an approximation of what `condense_exact` returns.
+/// Here there are still several representative per class.
+/// The tradeoff is a better complexity.
 ///
 /// Complexity: Linear time and space.
-///
-/// Expected simplification: as I write theses lines, on my store (NixOS, 37G)
-/// * before, n=50714, m=338659
-/// * after, n=4689, m=32722
 pub fn condense(mut di: DepInfos) -> DepInfos {
     // compute articulation points, ie topmost representents of every equivalence
     // class except roots
@@ -202,6 +190,25 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
     di
 }
 
+/// Computes a sort of condensation of the graph.
+///
+/// Precisely, let `roots(v)` be the set of roots depending on a vertex `v`.
+/// Let the input graph be `G=(V, E)`. This function returns the graph
+/// `(V', E')` where `V'` is the quotient of `V` by the equivalence relation
+/// "two vertices are equivalent if they have the same image by `roots`"
+/// and and edge is in `E'` if there are vertices in the source and target
+/// equivalence class which have a corresponding edge in `G`.
+///
+/// Complexity: Linear space, in time: product of the size of the graph and
+/// the number of roots.
+///
+/// This function is meant to be executed on the result of `condense`, which
+/// has a better complexity and does a quite good job.
+///
+/// Expected simplification: as I write theses lines, on my store (NixOS, 37G)
+/// * before: n=50223, m=340271
+/// * after `condense`: n=6578, m=40372
+/// * after `condese_exact`: n=4884, m=18004
 pub fn condense_exact(mut di: DepInfos) -> DepInfos {
     let mut g = di.graph.map(|_, _| 0u16, |_, _| ());
 
@@ -222,25 +229,32 @@ pub fn condense_exact(mut di: DepInfos) -> DepInfos {
         }
     }
 
+    // add a fake root
+    let fake_root = g.add_node(0);
+    for root in &di.roots {
+        g.add_edge(fake_root, *root, ());
+    }
+    let mut bfs = petgraph::visit::Bfs::new(&g, fake_root);
+    let _ = bfs.next(&g); // skip the fake root
+
     // now remove spurious elements from the original graph.
     // removing nodes is slow, so we create a new graph for that.
     let mut new_ids = collections::BTreeMap::new();
     let mut new_graph = DepGraph::new();
-    for (idx, _) in g.node_references() {
+
+    // we take as representative the topmost element of the class,
+    // topmost as in depth -- the first reached in a BFS
+    while let Some(idx) = bfs.next(&g) {
         let representative = NodeIndex::from(uf.find_mut(idx.index()));
         let new_node = new_ids.entry(representative).or_insert_with(|| {
-            new_graph.add_node(Derivation::dummy())
+            let mut w = Derivation::dummy();
+            std::mem::swap(&mut w, &mut di.graph[idx]);
+            new_graph.add_node(w)
         });
-        let origw = &mut di.graph[idx];
-        let neww = &mut new_graph[*new_node];
-        if origw.is_root || (!neww.is_root && neww.size < origw.size) {
-            std::mem::swap(origw, neww);
-        }
+        new_graph[*new_node].size += di.graph[idx].size;
     }
-    for (idx, w) in di.graph.node_references() {
-        let representative = NodeIndex::from(uf.find(idx.index()));
-        new_graph[new_ids[&representative]].size += w.size;
-    }
+
+    // keep edges
     for edge in g.raw_edges() {
         let from = NodeIndex::from(uf.find(edge.source().index()));
         let to = NodeIndex::from(uf.find(edge.target().index()));
