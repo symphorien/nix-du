@@ -26,6 +26,12 @@ fn main() {
         g.graph.node_count(),
         g.graph.edge_count()
     );
+    let g = depgraph::keep(g, &|d| d.size>2000000);
+    eprintln!(
+        "The graph after³ has n={}, m={}",
+        g.graph.node_count(),
+        g.graph.edge_count()
+    );
 
     {
         let stdout = io::stdout();

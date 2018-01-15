@@ -5,6 +5,7 @@ use std::collections;
 use std::vec::Vec;
 use petgraph::prelude::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
+use petgraph::visit::EdgeRef;
 use std::ffi::CString;
 use std;
 use petgraph::Direction::Outgoing;
@@ -263,6 +264,42 @@ pub fn condense_exact(mut di: DepInfos) -> DepInfos {
         }
     }
 
+    di.graph = new_graph;
+    di.roots = di.graph
+        .node_references()
+        .filter_map(|(idx, node)| if node.is_root { Some(idx) } else { None })
+        .collect();
+
+    di
+}
+
+pub fn keep(mut di: DepInfos, filter: &Fn(&Derivation) -> bool) -> DepInfos {
+    let mut new_ids = collections::BTreeMap::new();
+    let mut new_graph = DepGraph::new();
+
+    for idx in di.graph.node_indices() {
+        if filter(&di.graph[idx]) {
+            let mut new_w = Derivation::dummy();
+            std::mem::swap(&mut di.graph[idx], &mut new_w);
+            new_ids.insert(idx, new_graph.add_node(new_w));
+        }
+    }
+    for (&old, &new) in &new_ids {
+        let frozen = petgraph::graph::Frozen::new(&mut di.graph);
+        let filtered = petgraph::visit::EdgeFiltered::from_fn(&*frozen, |e| e.source() == old || !new_ids.contains_key(&e.source()));
+        let mut dfs = petgraph::visit::Dfs::new(&filtered, old);
+        while let Some(idx) = dfs.next(&filtered) {
+            if let Some(&new2) = new_ids.get(&idx) {
+                new_graph.add_edge(new, new2, ());
+            } else {
+                new_graph[new].size += frozen[idx].size;
+                unsafe {
+                    let w: &mut Derivation = std::mem::transmute_copy(&frozen[idx]);
+                    w.size = 0;
+                }
+            }
+        }
+    }
     di.graph = new_graph;
     di.roots = di.graph
         .node_references()
