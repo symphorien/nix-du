@@ -15,4 +15,5 @@ panic = "abort"
 petgraph = "0.4"
 memchr = "2"
 humansize = "1"
+palette = "0.2"
 libstore = { path = "libstore" }
