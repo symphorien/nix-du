@@ -13,4 +13,5 @@ panic = "abort"
 
 [dependencies]
 petgraph = "0.4"
+memchr = "2"
 libstore = { path = "libstore" }

@@ -1,13 +1,15 @@
 extern crate petgraph;
 extern crate libstore;
+extern crate memchr;
 
+use std;
 use std::collections;
 use std::vec::Vec;
+use std::ffi::CString;
+
 use petgraph::prelude::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
 use petgraph::visit::EdgeRef;
-use std::ffi::CString;
-use std;
 use petgraph::Direction::Outgoing;
 
 #[derive(Debug)]
@@ -39,6 +41,24 @@ impl Derivation {
             path: CString::default(),
             size: 0,
             is_root: false,
+        }
+    }
+
+    pub fn name(&self) -> &[u8] {
+        let whole = &self.path.to_bytes();
+        if self.is_root {
+            whole
+        } else {
+            match memchr::memrchr(b'/', whole) {
+                None => whole,
+                Some(i) => {
+                    let whole = &whole[i + 1..];
+                    match memchr::memchr(b'-', whole) {
+                        None => whole,
+                        Some(i) => &whole[i + 1..],
+                    }
+                }
+            }
         }
     }
 }
