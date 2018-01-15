@@ -293,12 +293,18 @@ pub fn condense_exact(mut di: DepInfos) -> DepInfos {
     di
 }
 
+/// Creates a new graph only retaining roots and nodes whose weight return
+/// `true` when passed to `filter`. The nodes which are dropped are
+/// merged into an arbitrary parent (ie. the name is dropped, but edges and size
+/// are merged).
+///
+/// Note that `filter` will be called at most once per node.
 pub fn keep(mut di: DepInfos, filter: &Fn(&Derivation) -> bool) -> DepInfos {
     let mut new_ids = collections::BTreeMap::new();
     let mut new_graph = DepGraph::new();
 
     for idx in di.graph.node_indices() {
-        if filter(&di.graph[idx]) {
+        if di.graph[idx].is_root || filter(&di.graph[idx]) {
             let mut new_w = Derivation::dummy();
             std::mem::swap(&mut di.graph[idx], &mut new_w);
             new_ids.insert(idx, new_graph.add_node(new_w));
@@ -317,8 +323,8 @@ pub fn keep(mut di: DepInfos, filter: &Fn(&Derivation) -> bool) -> DepInfos {
             } else {
                 new_graph[new].size += frozen[idx].size;
                 unsafe {
-                    let w: &mut Derivation = std::mem::transmute_copy(&frozen[idx]);
-                    w.size = 0;
+                    let w: *mut Derivation = &frozen[idx] as *const _ as *mut _;
+                    (*w).size = 0;
                 }
             }
         }
