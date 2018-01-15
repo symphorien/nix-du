@@ -306,8 +306,11 @@ pub fn keep(mut di: DepInfos, filter: &Fn(&Derivation) -> bool) -> DepInfos {
     }
     for (&old, &new) in &new_ids {
         let frozen = petgraph::graph::Frozen::new(&mut di.graph);
-        let filtered = petgraph::visit::EdgeFiltered::from_fn(&*frozen, |e| e.source() == old || !new_ids.contains_key(&e.source()));
+        let filtered = petgraph::visit::EdgeFiltered::from_fn(&*frozen, |e| {
+            e.source() == old || !new_ids.contains_key(&e.source())
+        });
         let mut dfs = petgraph::visit::Dfs::new(&filtered, old);
+        let _ = dfs.next(&filtered); // skip old
         while let Some(idx) = dfs.next(&filtered) {
             if let Some(&new2) = new_ids.get(&idx) {
                 new_graph.add_edge(new, new2, ());
