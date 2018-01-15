@@ -256,9 +256,11 @@ pub fn condense_exact(mut di: DepInfos) -> DepInfos {
 
     // keep edges
     for edge in g.raw_edges() {
-        let from = NodeIndex::from(uf.find(edge.source().index()));
-        let to = NodeIndex::from(uf.find(edge.target().index()));
-        new_graph.update_edge(new_ids[&from], new_ids[&to], ());
+        if edge.source() != fake_root {
+            let from = NodeIndex::from(uf.find(edge.source().index()));
+            let to = NodeIndex::from(uf.find(edge.target().index()));
+            new_graph.update_edge(new_ids[&from], new_ids[&to], ());
+        }
     }
 
     di.graph = new_graph;
