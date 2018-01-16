@@ -59,17 +59,15 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
         let (r, g, b): (u8, u8, u8) = Rgb::from(color).to_pixel();
         write!(
             w,
-            "N{}[color=\"#{:02X}{:02X}{:02X}\",fontcolor=\"{}\",tooltip=\"",
+            "N{}[color=\"#{:02X}{:02X}{:02X}\",fontcolor=\"{}\",label=\"",
             idx.index(),
             r,
             g,
             b,
             textcolor
         )?;
-        w.write_all(node.path.to_bytes())?;
-        write!(w, ", size={}\",label=\"", size)?;
         w.write_all(node.name())?;
-        w.write_all(b"\"];\n")?;
+        writeln!(w, " ({})\"];", size)?;
     }
     for edge in dependencies.graph.raw_edges() {
         writeln!(
