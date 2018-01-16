@@ -1,12 +1,11 @@
 extern crate petgraph;
-extern crate humansize;
+extern crate human_size;
 extern crate palette;
 
 use std;
 use depgraph;
 use std::io::{self, Write};
 use petgraph::visit::IntoNodeReferences;
-use self::humansize::FileSize;
 use self::palette::{Hsv, Rgb};
 
 pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Result<()> {
@@ -47,9 +46,7 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
     w.write_all(b"\n};\n")?;
     w.write_all(b"node [shape = box];\n")?;
     for (idx, node) in dependencies.graph.node_references() {
-        let size = node.size
-            .file_size(humansize::file_size_opts::BINARY)
-            .unwrap();
+        let size = human_size::Size::new(node.size as f64, human_size::Multiple::Byte).unwrap();
         let color: Hsv = gradient.get(scale(node.size));
         let textcolor = if color.value > 0.8 {
             "#000000"
