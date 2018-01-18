@@ -6,6 +6,9 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
+    // this build script only depends on the wrapper
+    println!("cargo:rerun-if-changed=wrapper.hpp");
+
     println!("cargo:rustc-link-lib=nixstore");
     println!("cargo:rustc-link-lib=nixmain");
 
