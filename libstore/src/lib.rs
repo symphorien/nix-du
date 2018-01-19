@@ -41,9 +41,14 @@ pub struct RootsIterator {
 }
 
 impl PathIterator {
-    unsafe fn new(set: nix_PathSet) -> Self {
-        let it = nix_adapter_begin_path_set(set);
-        let size = nix_adapter_size_path_set(set);
+    unsafe fn new(mut set: nix_PathSet) -> Self {
+        let it;
+        let size;
+        {
+        let pointer = &mut set as *mut _;
+        it = nix_adapter_begin_path_set(pointer);
+        size = nix_adapter_size_path_set(pointer);
+        }
         PathIterator { it, size, cur: 0, set }
     }
 }
@@ -104,9 +109,14 @@ impl ExactSizeIterator for PathIterator {
 }
 
 impl RootsIterator {
-    unsafe fn new(map: nix_Roots) -> Self {
-        let it = nix_adapter_begin_roots(map);
-        let size = nix_adapter_size_roots(map);
+    unsafe fn new(mut map: nix_Roots) -> Self {
+        let size;
+        let it;
+        {
+            let pointer = &mut map as *mut _;
+            it = nix_adapter_begin_roots(pointer);
+            size = nix_adapter_size_roots(pointer);
+        }
         RootsIterator { it, size, cur: 0, map }
     }
 }
