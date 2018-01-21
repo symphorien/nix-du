@@ -2,6 +2,7 @@
 name = "libstore"
 version = "0.1.0"
 authors = ["Symphorien Gibol <symphorien+git@xlumurb.eu>"]
+license = "LGPL-3.0"
 
 [build-dependencies]
 bindgen = "0.32"
