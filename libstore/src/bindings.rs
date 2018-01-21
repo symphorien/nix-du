@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-3.0
+
 #![allow(non_upper_case_globals)]
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]

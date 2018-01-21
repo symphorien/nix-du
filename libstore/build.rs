@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-3.0
+
 extern crate bindgen;
 extern crate cc;
 extern crate shlex;

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-3.0
+
 extern crate petgraph;
 extern crate libstore;
 extern crate memchr;

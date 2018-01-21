@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: LGPL-3.0
+
 #[macro_use]
 extern crate clap;
 extern crate petgraph;
