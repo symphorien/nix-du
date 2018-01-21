@@ -16,8 +16,10 @@ $ target/release/nix-du --help # it works :)
 
 ### Running
 `nix-du` generates a directed graph (more on that later) in the DOT format.
-Therefore you need `dot` installed (it usually available under the package name `graphviz`).
-Then you can translate the graph in various more "traditional" image format.
+Therefore you need `dot` installed (it is usually available under the package name `graphviz`).
+Then you can translate the graph in various more "traditional" image formats.
+
+For example:
 ```sh
 # to svg
 nix-du -n 60 | dot -Tsvg > store.svg
