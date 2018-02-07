@@ -8,6 +8,7 @@ extern crate human_size;
 
 mod depgraph;
 mod dot;
+mod reduction;
 use std::io;
 use human_size::Size;
 
@@ -89,13 +90,13 @@ meant to be accurate, but the label is that of an arbitrary store path of this e
         g.graph.node_count(),
         g.graph.edge_count()
     );
-    let g = depgraph::condense(g);
+    let g = reduction::condense(g);
     eprintln!(
         "The graph after has n={}, m={}",
         g.graph.node_count(),
         g.graph.edge_count()
     );
-    let g = depgraph::condense_exact(g);
+    let g = reduction::condense_exact(g);
     eprintln!(
         "The graph after² has n={}, m={}",
         g.graph.node_count(),
@@ -107,7 +108,7 @@ meant to be accurate, but the label is that of an arbitrary store path of this e
         min_size = sizes[sizes.len().saturating_sub(n_nodes)];
     }
 
-    let g = depgraph::keep(g, &|d| d.size >= min_size);
+    let g = reduction::keep(g, &|d| d.size >= min_size);
     eprintln!(
         "The graph after³ has n={}, m={}",
         g.graph.node_count(),
