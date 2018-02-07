@@ -27,8 +27,8 @@ stdenv.mkDerivation rec {
     cargo
   ];
   CLANG_PATH="${clang}/bin/clang";
-  LIBCLANG_PATH="${llvmPackages.clang-unwrapped}/lib";
-  LD_LIBRARY_PATH="${llvmPackages.clang-unwrapped}/lib";
+  LIBCLANG_PATH="${llvmPackages.clang-unwrapped.lib}/lib";
+  LD_LIBRARY_PATH="${llvmPackages.clang-unwrapped.lib}/lib";
   RUST_BACKTRACE=1;
   preConfigure = ''
     export BINDGEN_EXTRA_CFLAGS="$(cat ${bindgenFlags})";
