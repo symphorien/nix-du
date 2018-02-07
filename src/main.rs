@@ -3,12 +3,12 @@
 #[macro_use]
 extern crate clap;
 extern crate petgraph;
-extern crate libstore;
 extern crate human_size;
 
 mod depgraph;
 mod dot;
 mod reduction;
+mod libstore;
 use std::io;
 use human_size::Size;
 

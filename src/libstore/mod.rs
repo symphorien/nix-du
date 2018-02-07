@@ -2,7 +2,7 @@
 
 mod bindings;
 
-use bindings::*;
+use self::bindings::*;
 use std::os::raw::c_void;
 use std::ffi::{CStr, CString};
 

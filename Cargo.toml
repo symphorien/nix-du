@@ -10,7 +10,10 @@ panic = "abort"
 [profile.release]
 panic = "abort"
 
-[workspace]
+[build-dependencies]
+bindgen = "0.32"
+cc = "1.0"
+shlex = "0.1"
 
 [dependencies]
 petgraph = "0.4"
@@ -21,4 +24,3 @@ humansize = "1"
 human-size = "0.2"
 palette = "0.2"
 clap = "2"
-libstore = { path = "libstore" }

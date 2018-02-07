@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0
 
 extern crate petgraph;
-extern crate libstore;
 extern crate memchr;
 
 use std::vec::Vec;
 use std::ffi::CString;
 use std::collections;
+use libstore;
 
 use petgraph::prelude::NodeIndex;
 
