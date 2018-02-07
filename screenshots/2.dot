@@ -1,0 +1,17 @@
+digraph nixstore {
+rankdir=LR;node [shape = tripleoctagon, style=filled];
+{ rank = same;
+N0; N1; N2; N3; 
+};
+node [shape = box];
+N0[color="#0D24C0",fontcolor="#ffffff",label="/nix/var/nix/profiles/per-user/root/channels-1-link (51 B)"];
+N1[color="#FF0000",fontcolor="#000000",label="/nix/var/nix/profiles/per-user/coucou/profile-2-link (137.18 MiB)"];
+N2[color="#0D24C0",fontcolor="#ffffff",label="/nix/var/nix/profiles/per-user/coucou/profile-1-link (2.08 KiB)"];
+N3[color="#0D24C0",fontcolor="#ffffff",label="/nix/var/nix/profiles/per-user/coucou/channels-1-link (53 B)"];
+N4[color="#8BFF06",fontcolor="#000000",label="user-environment (52.42 MiB)"];
+N5[color="#0AE57E",fontcolor="#000000",label="nix-index-0.1.0 (27.05 MiB)"];
+N0 -> N4;
+N1 -> N5;
+N2 -> N5;
+N3 -> N4;
+}
