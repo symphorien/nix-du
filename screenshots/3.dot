@@ -1,0 +1,23 @@
+digraph nixstore {
+rankdir=LR;node [shape = tripleoctagon, style=filled];
+{ rank = same;
+N0; N1; N2; N3; N4; 
+};
+node [shape = box];
+N0[color="#0D24C0",fontcolor="#ffffff",label="/nix/var/nix/profiles/per-user/root/channels-1-link (51 B)"];
+N1[color="#0D24C0",fontcolor="#ffffff",label="/nix/var/nix/profiles/per-user/coucou/profile-3-link (900 B)"];
+N2[color="#FF0000",fontcolor="#000000",label="/nix/var/nix/profiles/per-user/coucou/profile-2-link (137.18 MiB)"];
+N3[color="#0D24C0",fontcolor="#ffffff",label="/nix/var/nix/profiles/per-user/coucou/profile-1-link (900 B)"];
+N4[color="#0D24C0",fontcolor="#ffffff",label="/nix/var/nix/profiles/per-user/coucou/channels-1-link (53 B)"];
+N5[color="#8BFF06",fontcolor="#000000",label="user-environment (52.42 MiB)"];
+N6[color="#0AE57E",fontcolor="#000000",label="nix-index-0.1.0 (27.05 MiB)"];
+N7[color="#0D24C0",fontcolor="#ffffff",label="env-manifest.nix (1.20 KiB)"];
+N0 -> N5;
+N1 -> N7;
+N1 -> N6;
+N2 -> N6;
+N3 -> N7;
+N3 -> N6;
+N4 -> N5;
+N7 -> N6;
+}
