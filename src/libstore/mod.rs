@@ -100,7 +100,9 @@ impl Iterator for PathIterator {
             None
         } else {
             let path = unsafe { nix_adapter_dereference_path_set_it(self.it) };
-            self.it = unsafe { nix_adapter_inc_path_set_it(self.it) };
+            if self.cur < self.size {
+                self.it = unsafe { nix_adapter_inc_path_set_it(self.it) };
+            }
             Some(PathEntry { path })
         }
     }
