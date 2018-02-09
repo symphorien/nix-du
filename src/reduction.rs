@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0
 
-extern crate petgraph;
 extern crate memchr;
+extern crate petgraph;
 
 use std;
 use std::collections;

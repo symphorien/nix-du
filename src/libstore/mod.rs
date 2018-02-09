@@ -163,7 +163,11 @@ impl ExactSizeIterator for RootsIterator {
 
 impl Store {
     pub fn new() -> Self {
-        unsafe { Store { s: nix_RemoteStore::new() } }
+        unsafe {
+            Store {
+                s: nix_RemoteStore::new(),
+            }
+        }
     }
 
     pub fn valid_paths(&mut self) -> PathIterator {
