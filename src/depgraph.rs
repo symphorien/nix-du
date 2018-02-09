@@ -10,7 +10,7 @@ use libstore;
 
 use petgraph::prelude::NodeIndex;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Derivation {
     pub path: CString,
     pub size: u64,
@@ -65,6 +65,7 @@ pub type Edge = ();
 
 pub type DepGraph = petgraph::graph::Graph<Derivation, Edge, petgraph::Directed>;
 
+#[derive(Debug, Clone)]
 pub struct DepInfos {
     pub graph: DepGraph,
     pub roots: Vec<NodeIndex>,

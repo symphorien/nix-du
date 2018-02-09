@@ -96,12 +96,6 @@ meant to be accurate, but the label is that of an arbitrary store path of this e
         g.graph.node_count(),
         g.graph.edge_count()
     );
-    let g = reduction::condense_exact(g);
-    eprintln!(
-        "The graph after² has n={}, m={}",
-        g.graph.node_count(),
-        g.graph.edge_count()
-    );
     if n_nodes > 0 {
         let mut sizes: Vec<u64> = g.graph.raw_nodes().iter().map(|n| n.weight.size).collect();
         &sizes.sort_unstable();

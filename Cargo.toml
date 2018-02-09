@@ -24,3 +24,6 @@ humansize = "1"
 human-size = "0.2"
 palette = "0.2"
 clap = "2"
+
+[dev-dependencies]
+rand = "0.4"
