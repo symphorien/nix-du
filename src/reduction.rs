@@ -21,20 +21,61 @@ use depgraph::*;
 /// and and edge is in `E'` if there are vertices in the source and target
 /// equivalence class which have a corresponding edge in `G`.
 ///
-/// Complexity: Linear space, in time: product of the size of the graph and
-/// the number of roots.
+/// Complexity: with n vertices, m edges and r roots:
+/// * n²+m in space
+/// * (n²+m)r in time
 ///
 /// This function is meant to be executed on the result of `condense`, which
 /// has a better complexity and does a quite good job.
 ///
-/// Expected simplification: as I write theses lines, on my store (NixOS, 37G)
-/// * before: n=50223, m=340271
-/// * after `condense`: n=6578, m=40372
-/// * after `condese_exact`: n=4884, m=18004
+/// Expected simplification: as I write theses lines, on my store (`NixOS`, 37G)
+/// * before: n=37594, m=262914
+/// * after `condense`: n=3604, m=15076
 pub fn condense(mut di: DepInfos) -> DepInfos {
     let mut g = di.graph.map(|_, _| 0u16, |_, _| ());
 
-    // label each node with the number of roots it is a dependence of
+    // add a fake root
+    let fake_root = g.add_node(0);
+    for root in &di.roots {
+        g.add_edge(fake_root, *root, ());
+    }
+
+    // label each node with its "rsize", the number of roots it is a dependence of
+    let mut max_rsize = 0;
+    for root in (&di.roots).iter().cloned() {
+        let mut bfs = petgraph::visit::Bfs::new(&g, root);
+        while let Some(nx) = bfs.next(&g) {
+            g[nx] += 1;
+            max_rsize = std::cmp::max(max_rsize, g[nx]);
+        }
+    }
+
+    // for each pair of nodes with same rsize, to know whether they are in the same
+    // class, we add a child node.
+    max_rsize += 1;
+    let mut nodes_by_rsize = std::iter::repeat(Vec::new())
+        .take(max_rsize as usize)
+        .collect::<Vec<Vec<NodeIndex>>>();
+    for idx in g.node_indices() {
+        let rsize = g[idx] as usize;
+        if rsize > 0 {
+            nodes_by_rsize[rsize].push(idx);
+        }
+        g[idx] = 0;
+    }
+    for n in &nodes_by_rsize {
+        for &i in n {
+            for &j in n {
+                if i != j {
+                    let x = g.add_node(0);
+                    g.add_edge(i, x, ());
+                    g.add_edge(j, x, ());
+                }
+            }
+        }
+    }
+
+    // label each node with its "rsize", the number of roots it is a dependence of
     for root in (&di.roots).iter().cloned() {
         let mut bfs = petgraph::visit::Bfs::new(&g, root);
         while let Some(nx) = bfs.next(&g) {
@@ -51,11 +92,6 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
         }
     }
 
-    // add a fake root
-    let fake_root = g.add_node(0);
-    for root in &di.roots {
-        g.add_edge(fake_root, *root, ());
-    }
     let mut bfs = petgraph::visit::Bfs::new(&g, fake_root);
     let _ = bfs.next(&g); // skip the fake root
 
@@ -67,6 +103,9 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
     // we take as representative the topmost element of the class,
     // topmost as in depth -- the first reached in a BFS
     while let Some(idx) = bfs.next(&g) {
+        if idx >= fake_root {
+            continue;
+        }
         let representative = NodeIndex::from(uf.find_mut(idx.index()));
         let new_node = new_ids.entry(representative).or_insert_with(|| {
             let mut w = Derivation::dummy();
@@ -78,14 +117,12 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
 
     // keep edges
     for edge in g.raw_edges() {
-        if edge.source() != fake_root {
-            let from = NodeIndex::from(uf.find(edge.source().index()));
-            let to = NodeIndex::from(uf.find(edge.target().index()));
-            if from != to {
-                // unreachale nodes don't have a counterpart in the new graph
-                if let (Some(&newfrom), Some(&newto)) = (new_ids.get(&from), new_ids.get(&to)) {
-                    new_graph.update_edge(newfrom, newto, ());
-                }
+        let from = NodeIndex::from(uf.find(edge.source().index()));
+        let to = NodeIndex::from(uf.find(edge.target().index()));
+        if from != to {
+            // unreachable nodes don't have a counterpart in the new graph
+            if let (Some(&newfrom), Some(&newto)) = (new_ids.get(&from), new_ids.get(&to)) {
+                new_graph.update_edge(newfrom, newto, ());
             }
         }
     }
@@ -253,7 +290,7 @@ mod tests {
     /// check that condense and keep preserve some invariants
     fn invariants() {
         for _ in 0..40 {
-            let di = generate_random(500, 10);
+            let di = generate_random(250, 10);
             check_invariants(condense, di.clone());
             check_invariants(|x| keep(x, &|_| false), di.clone());
             check_invariants(|x| keep(x, &|_| true), di.clone());
@@ -263,7 +300,7 @@ mod tests {
     fn check_condense() {
         // 62 so that each node is uniquely determined by its size, and
         // merging nodes doesn't destroy this information
-        for _ in 0..40 {
+        for _ in 0..60 {
             let old = generate_random(62, 10);
             let mut old_rev = old.graph.clone();
             old_rev.reverse();
@@ -298,8 +335,7 @@ mod tests {
                 }
                 nodes_image.insert(after);
             }
-            // FIXME: this is failing...
-            //assert_eq!(nodes_image.len(), new.graph.node_count());
+            assert_eq!(nodes_image.len(), new.graph.node_count());
         }
     }
 }

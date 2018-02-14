@@ -26,12 +26,12 @@ For example:
 ```sh
 # to svg
 nix-du -n 60 | dot -Tsvg > store.svg
-# to png; use tred to remove a few more edges
+# to png; use tred to remove a few more edges (recommended)
 nix-du -n 60 | tred | dot -Tpng > store.png
 ```
 Another option is to use an interactive viewer such as `zgrviewer`
 ```sh
-nix-du -n 60 > store.dot
+nix-du -n 60 | tred > store.dot
 zgrviewer store.dot
 ```
 ### Interpreting
