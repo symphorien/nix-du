@@ -4,11 +4,12 @@ extern crate memchr;
 extern crate petgraph;
 
 use std::vec::Vec;
-use std::ffi::CString;
-use std::collections;
-use libstore;
+use std::ffi::{CString, CStr};
+use std::os::raw::c_void;
+use bindings;
 
 use petgraph::prelude::NodeIndex;
+use petgraph::visit::IntoNodeReferences;
 
 #[derive(Debug, Clone)]
 pub struct Derivation {
@@ -19,19 +20,11 @@ pub struct Derivation {
 
 impl Derivation {
     /// Note: clones the string describing the path.
-    pub fn new_inner(p: &libstore::Path) -> Self {
+    unsafe fn new(p: &bindings::path_t) -> Self {
         Derivation {
-            path: p.path().clone(),
-            size: p.size(),
-            is_root: false,
-        }
-    }
-    pub fn new_root(p: CString) -> Self {
-        let size = p.to_bytes().len() as u64; // good approximation for symlinks
-        Derivation {
-            path: p,
-            size: size,
-            is_root: true,
+            path: CStr::from_ptr(p.path).to_owned(),
+            size: p.size,
+            is_root: p.is_root != 0,
         }
     }
     pub fn dummy() -> Self {
@@ -71,45 +64,28 @@ pub struct DepInfos {
     pub roots: Vec<NodeIndex>,
 }
 
-pub fn store_to_depinfos(store: &mut libstore::Store) -> DepInfos {
-    let valid_paths = store.valid_paths();
-    let mut g = DepGraph::with_capacity(valid_paths.len(), valid_paths.len());
-    let mut path_to_node = collections::HashMap::with_capacity(valid_paths.len());
-    let mut queue = Vec::new();
-    for pe in valid_paths {
-        let path = pe.to_path(store);
-        let node = g.add_node(Derivation::new_inner(&path));
-        path_to_node.insert(path.path().clone(), node);
-        queue.push((node, path));
-    }
-    while !queue.is_empty() {
-        let (node, path) = queue.pop().unwrap();
-        for dep in path.deps() {
-            let child = dep.to_path(store);
-            //eprintln!("{:?} child of {:?}", child.path(), path.path());
-            let entry = path_to_node.entry(child.path().clone());
-            let childnode = match entry {
-                collections::hash_map::Entry::Vacant(e) => {
-                    let new_node = g.add_node(Derivation::new_inner(&child));
-                    e.insert(new_node);
-                    queue.push((new_node, child));
-                    new_node
-                }
-                collections::hash_map::Entry::Occupied(e) => *e.get(),
-            };
-            g.add_edge(node, childnode, ());
-        }
-    }
+#[no_mangle]
+pub extern "C" fn register_node(g: *mut DepGraph, p: *const bindings::path_t) {
+    let p: &bindings::path_t = unsafe { p.as_ref().unwrap() };
+    let g: &mut DepGraph = unsafe { g.as_mut().unwrap() };
+    let drv = unsafe { Derivation::new(p) };
+    g.add_node(drv);
+}
 
-    let roots_it = store.roots();
-    let mut roots = Vec::with_capacity(roots_it.len());
-    for (link, path) in roots_it {
-        let destnode = path_to_node[path.to_path(store).path()];
-        let fromnode = g.add_node(Derivation::new_root(link));
-        g.add_edge(fromnode, destnode, ());
-        roots.push(fromnode);
-    }
+#[no_mangle]
+pub extern "C" fn register_edge(g: *mut DepGraph, from: u32, to: u32) {
+    let g: &mut DepGraph = unsafe { g.as_mut().unwrap() };
+    g.add_edge(NodeIndex::from(from), NodeIndex::from(to), ());
+}
 
-    g.shrink_to_fit();
+pub fn get_depinfos() -> DepInfos {
+    let mut g = DepGraph::new();
+    let gptr = &mut g as *mut _ as *mut c_void;
+    unsafe { bindings::populateGraph(gptr) };
+
+    let roots = g.node_references()
+        .filter_map(|(idx, drv)| if drv.is_root { Some(idx) } else { None })
+        .collect();
+
     DepInfos { graph: g, roots }
 }

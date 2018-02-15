@@ -203,12 +203,10 @@ mod tests {
     fn roots_attr_coherent(di: &DepInfos) -> bool {
         let from_nodes: collections::BTreeSet<NodeIndex> = di.graph
             .node_references()
-            .filter_map(|nref| {
-                if nref.weight().is_root {
-                    Some(nref.id())
-                } else {
-                    None
-                }
+            .filter_map(|nref| if nref.weight().is_root {
+                Some(nref.id())
+            } else {
+                None
             })
             .collect();
         let from_attr: collections::BTreeSet<NodeIndex> = di.roots.iter().cloned().collect();

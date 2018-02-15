@@ -39,7 +39,9 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
 
     w.write_all(b"digraph nixstore {\n")?;
     w.write_all(b"rankdir=LR;")?;
-    w.write_all(b"node [shape = tripleoctagon, style=filled];\n")?;
+    w.write_all(
+        b"node [shape = tripleoctagon, style=filled];\n",
+    )?;
     w.write_all(b"{ rank = same;\n")?;
     for idx in &dependencies.roots {
         write!(w, "N{}; ", idx.index())?;

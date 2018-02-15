@@ -11,20 +11,12 @@ fn main() {
     // this build script only depends on the wrapper
     println!("cargo:rerun-if-changed=wrapper.hpp");
 
-    println!("cargo:rustc-link-lib=nixstore");
-    println!("cargo:rustc-link-lib=nixmain");
 
     let mut builder = bindgen::Builder::default()
         .clang_arg("-std=c++11")
         .header("wrapper.hpp")
-        .whitelist_type("nix::LocalStore")
-        .whitelist_type("nix::RemoteStore")
-        .whitelist_type("nix::PathSet")
-        .whitelist_type("nix::Path")
-        .whitelist_type("nix_adapter::.*")
-        .whitelist_function("nix::initNix")
-        .whitelist_function("nix::openStore")
-        .whitelist_function("nix_adapter::.*")
+        .whitelist_type("path_t")
+        .whitelist_function("populateGraph")
         .opaque_type("std::.*")
         .impl_debug(true);
 
@@ -45,4 +37,7 @@ fn main() {
         .file("wrapper.cpp")
         .compile("libnix_adapter.a");
 
+    /* must be passed as an argument to the linker *after* -lnix_adapter */
+    println!("cargo:rustc-link-lib=nixstore");
+    println!("cargo:rustc-link-lib=nixmain");
 }

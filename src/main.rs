@@ -8,13 +8,18 @@ extern crate petgraph;
 mod depgraph;
 mod dot;
 mod reduction;
-mod libstore;
+mod bindings;
 use std::io;
 use human_size::Size;
 
+/* so that these functions are available in libnix_adepter.a */
+pub use depgraph::{register_node, register_edge};
+
 fn main() {
     let matches = clap::App::new("nix-du")
-        .about("visualise what gc-roots you should delete to free space in your nix-store")
+        .about(
+            "visualise what gc-roots you should delete to free space in your nix-store",
+        )
         .long_about(
             "
 This program outputs a graph on stdout in the dot format which may help you figuring out which
@@ -34,7 +39,9 @@ meant to be accurate, but the label is that of an arbitrary store path of this e
                 .short("s")
                 .long("min-size")
                 .value_name("SIZE")
-                .help("Hide nodes below this size (a unit should be specified: -s=\"50 MB\")")
+                .help(
+                    "Hide nodes below this size (a unit should be specified: -s=\"50 MB\")",
+                )
                 .takes_value(true),
         )
         .arg(
@@ -43,35 +50,41 @@ meant to be accurate, but the label is that of an arbitrary store path of this e
                 .long("nodes")
                 .value_name("N")
                 .conflicts_with("min-size")
-                .help("Only keep the approximately N biggest nodes (union gc-roots)")
+                .help(
+                    "Only keep the approximately N biggest nodes (union gc-roots)",
+                )
                 .takes_value(true),
         )
         .get_matches();
 
     let mut min_size = match matches.value_of("min-size") {
-        Some(min_size_str) => min_size_str
-            .parse::<Size>()
-            .unwrap_or_else(|_| {
-                clap::Error::value_validation_auto(
+        Some(min_size_str) => {
+            min_size_str
+                .parse::<Size>()
+                .unwrap_or_else(|_| {
+                    clap::Error::value_validation_auto(
     "The argument to --min-size is not a valid syntax. Try -s=\"5M MB\" for example."
     .to_owned()).exit()
-            })
-            .into_bytes() as u64,
+                })
+                .into_bytes() as u64
+        }
         None => 0,
     };
     let n_nodes = match matches.value_of("nodes") {
-        Some(min_size_str) => match min_size_str.parse::<usize>() {
-            Ok(x) if x > 0 => x,
-            _ => clap::Error::value_validation_auto(
-                "The argument to --nodes is not a positive integer".to_owned(),
-            ).exit(),
-        },
+        Some(min_size_str) => {
+            match min_size_str.parse::<usize>() {
+                Ok(x) if x > 0 => x,
+                _ => {
+                    clap::Error::value_validation_auto(
+                        "The argument to --nodes is not a positive integer".to_owned(),
+                    ).exit()
+                }
+            }
+        }
         None => 0,
     };
 
-    libstore::init_nix();
-    let mut store = libstore::Store::new();
-    let g = depgraph::store_to_depinfos(&mut store);
+    let g = depgraph::get_depinfos();
     eprintln!(
         "The graph before has n={}, m={}",
         g.graph.node_count(),
@@ -85,7 +98,7 @@ meant to be accurate, but the label is that of an arbitrary store path of this e
     );
     if n_nodes > 0 {
         let mut sizes: Vec<u64> = g.graph.raw_nodes().iter().map(|n| n.weight.size).collect();
-        &sizes.sort_unstable();
+        sizes.sort_unstable();
         min_size = sizes[sizes.len().saturating_sub(n_nodes)];
     }
 
