@@ -99,6 +99,5 @@ For now `nix-du` does not take hard linked files (see `nix-store --optimise`) in
 to 3 derivations they will be counted 3 times.
 
 ## Limitations
-* for now the ffi stuff is leaky
-* only connection to the nix-daemon is implemented, sorry to users of single user installs
 * no optimised store support
+* may use more testing :)
