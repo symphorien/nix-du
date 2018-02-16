@@ -64,7 +64,7 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
                 .parse::<Size>()
                 .unwrap_or_else(|_| {
                     clap::Error::value_validation_auto(
-    "The argument to --min-size is not a valid syntax. Try -s=\"5M MB\" for example."
+    "The argument to --min-size is not a valid syntax. Try -s=\"5 MB\" for example."
     .to_owned()).exit()
                 })
                 .into_bytes() as u64
