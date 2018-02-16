@@ -85,7 +85,7 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
         None => 0,
     };
 
-    let mut g = depgraph::get_depinfos();
+    let mut g = depgraph::DepInfos::read_from_store();
     eprintln!(
         "The graph before has n={}, m={}",
         g.graph.node_count(),

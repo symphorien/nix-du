@@ -7,7 +7,6 @@ use std;
 use std::collections;
 
 use petgraph::prelude::NodeIndex;
-use petgraph::visit::IntoNodeReferences;
 use petgraph::visit::EdgeRef;
 
 use depgraph::*;
@@ -126,14 +125,7 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
             }
         }
     }
-
-    di.graph = new_graph;
-    di.roots = di.graph
-        .node_references()
-        .filter_map(|(idx, node)| if node.is_root { Some(idx) } else { None })
-        .collect();
-
-    di
+    DepInfos::new_from_graph(new_graph)
 }
 
 /// Creates a new graph only retaining roots and nodes whose weight return
@@ -172,13 +164,7 @@ pub fn keep(mut di: DepInfos, filter: &Fn(&Derivation) -> bool) -> DepInfos {
             }
         }
     }
-    di.graph = new_graph;
-    di.roots = di.graph
-        .node_references()
-        .filter_map(|(idx, node)| if node.is_root { Some(idx) } else { None })
-        .collect();
-
-    di
+    DepInfos::new_from_graph(new_graph)
 }
 
 #[cfg(test)]
@@ -191,40 +177,7 @@ mod tests {
     use std::collections;
     use std::ffi::CString;
     use petgraph::prelude::NodeIndex;
-    use petgraph::visit::NodeRef;
-    use petgraph::visit::VisitMap;
 
-    /// returns the set of paths of the roots
-    fn roots_name(di: &DepInfos) -> collections::BTreeSet<&CString> {
-        di.roots.iter().map(|&idx| &di.graph[idx].path).collect()
-    }
-    /// returns wether di.roots is really the set of indices of root nodes
-    /// according to `drv.is_root`
-    fn roots_attr_coherent(di: &DepInfos) -> bool {
-        let from_nodes: collections::BTreeSet<NodeIndex> = di.graph
-            .node_references()
-            .filter_map(|nref| if nref.weight().is_root {
-                Some(nref.id())
-            } else {
-                None
-            })
-            .collect();
-        let from_attr: collections::BTreeSet<NodeIndex> = di.roots.iter().cloned().collect();
-        from_attr == from_nodes
-    }
-    /// return the sum of the size of all the derivations reachable from a root
-    fn reachable_size(di: &DepInfos) -> u64 {
-        let mut dfs = petgraph::visit::Dfs::empty(&di.graph);
-        let mut sum = 0;
-        for &idx in &di.roots {
-            dfs.discovered.visit(idx);
-            dfs.stack.push(idx);
-        }
-        while let Some(idx) = dfs.next(&di.graph) {
-            sum += di.graph[idx].size;
-        }
-        sum
-    }
     /// asserts that `transform` preserves
     /// * the set of roots, py path
     /// * reachable size
@@ -232,9 +185,9 @@ mod tests {
     fn check_invariants<T: Fn(DepInfos) -> DepInfos>(transform: T, di: DepInfos) {
         let orig = di.clone();
         let new = transform(di);
-        assert_eq!(roots_name(&new), roots_name(&orig));
-        assert_eq!(reachable_size(&new), reachable_size(&orig));
-        assert!(roots_attr_coherent(&new));
+        assert_eq!(new.roots_name(), orig.roots_name());
+        assert_eq!(new.reachable_size(), orig.reachable_size());
+        assert!(new.roots_attr_coherent());
     }
     /// generates a random `DepInfos` where
     /// * all derivations have a distinct path
@@ -281,7 +234,7 @@ mod tests {
             g[idx].is_root = true;
         }
         let di = DepInfos { graph: g, roots };
-        assert!(roots_attr_coherent(&di));
+        assert!(di.roots_attr_coherent());
         di
     }
     #[test]

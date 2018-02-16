@@ -6,10 +6,14 @@ extern crate petgraph;
 use std::vec::Vec;
 use std::ffi::{CString, CStr};
 use std::os::raw::c_void;
+use std::collections;
 use bindings;
 
 use petgraph::prelude::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
+use petgraph::visit::NodeRef;
+#[cfg(test)]
+use petgraph::visit::VisitMap;
 
 #[derive(Debug, Clone)]
 pub struct Derivation {
@@ -78,14 +82,63 @@ pub extern "C" fn register_edge(g: *mut DepGraph, from: u32, to: u32) {
     g.add_edge(NodeIndex::from(from), NodeIndex::from(to), ());
 }
 
-pub fn get_depinfos() -> DepInfos {
-    let mut g = DepGraph::new();
-    let gptr = &mut g as *mut _ as *mut c_void;
-    unsafe { bindings::populateGraph(gptr) };
+impl DepInfos {
+    pub fn read_from_store() -> Self {
+        let mut g = DepGraph::new();
+        let gptr = &mut g as *mut _ as *mut c_void;
+        unsafe { bindings::populateGraph(gptr) };
 
-    let roots = g.node_references()
-        .filter_map(|(idx, drv)| if drv.is_root { Some(idx) } else { None })
-        .collect();
+        DepInfos::new_from_graph(g)
+    }
 
-    DepInfos { graph: g, roots }
+    pub fn new_from_graph(g: DepGraph) -> Self {
+        let roots = g.node_references()
+            .filter_map(|(idx, drv)| if drv.is_root { Some(idx) } else { None })
+            .collect();
+
+        let di = DepInfos { graph: g, roots };
+        debug_assert!(di.roots_attr_coherent());
+        di
+    }
+    /// returns the sum of the size of all the derivations reachable from a root
+    #[cfg(test)]
+    pub fn reachable_size(&self) -> u64 {
+        let mut dfs = petgraph::visit::Dfs::empty(&self.graph);
+        let mut sum = 0;
+        for &idx in &self.roots {
+            dfs.discovered.visit(idx);
+            dfs.stack.push(idx);
+        }
+        while let Some(idx) = dfs.next(&self.graph) {
+            sum += self.graph[idx].size;
+        }
+        sum
+    }
+    /// returns the set of paths of the roots
+    /// intended for testing mainly
+    #[cfg(test)]
+    pub fn roots_name(&self) -> collections::BTreeSet<&CString> {
+        self.roots
+            .iter()
+            .map(|&idx| &self.graph[idx].path)
+            .collect()
+    }
+    /// returns wether di.roots is really the set of indices of root nodes
+    /// according to `drv.is_root` and according to the graph structure
+    /// intended for tests mainly
+    pub fn roots_attr_coherent(&self) -> bool {
+        let from_nodes: collections::BTreeSet<NodeIndex> = self.graph
+            .node_references()
+            .filter_map(|nref| if nref.weight().is_root {
+                Some(nref.id())
+            } else {
+                None
+            })
+            .collect();
+        let from_attr: collections::BTreeSet<NodeIndex> = self.roots.iter().cloned().collect();
+        let from_structure: collections::BTreeSet<NodeIndex> = self.graph
+            .externals(petgraph::Direction::Incoming)
+            .collect();
+        from_attr == from_nodes && from_nodes == from_structure
+    }
 }
