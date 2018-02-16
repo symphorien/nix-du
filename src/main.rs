@@ -85,30 +85,33 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
         None => 0,
     };
 
-    let g = depgraph::get_depinfos();
+    let mut g = depgraph::get_depinfos();
     eprintln!(
         "The graph before has n={}, m={}",
         g.graph.node_count(),
         g.graph.edge_count()
     );
-    let g = reduction::condense(g);
+    g = reduction::condense(g);
     eprintln!(
         "The graph after has n={}, m={}",
         g.graph.node_count(),
         g.graph.edge_count()
     );
-    if n_nodes > 0 {
+
+    if n_nodes > 0 && n_nodes < g.graph.node_count() {
         let mut sizes: Vec<u64> = g.graph.raw_nodes().iter().map(|n| n.weight.size).collect();
         sizes.sort_unstable();
         min_size = sizes[sizes.len().saturating_sub(n_nodes)];
     }
 
-    let g = reduction::keep(g, &|d| d.size >= min_size);
-    eprintln!(
-        "The graph after³ has n={}, m={}",
-        g.graph.node_count(),
-        g.graph.edge_count()
-    );
+    if min_size > 0 {
+        g = reduction::keep(g, &|d| d.size >= min_size);
+        eprintln!(
+            "The graph after³ has n={}, m={}",
+            g.graph.node_count(),
+            g.graph.edge_count()
+        );
+    }
 
     {
         let stdout = io::stdout();
