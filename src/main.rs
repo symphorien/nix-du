@@ -31,6 +31,7 @@ in a browser or dedicated software like zgrviewer.
 The exact meaning of the graph is as follows: if you use neither -s nor -n then a node is the
 equivalence class of all store paths on which the exact same set of gc-roots depend. The size is
 meant to be accurate, but the label is that of an arbitrary store path of this equivalence class.
+An arrow from A to B means that to get rid of B you have to get rid of A before.
 ",
         )
         .version(crate_version!())
