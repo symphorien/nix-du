@@ -13,7 +13,7 @@ use depgraph::*;
 
 /// Computes a sort of condensation of the graph.
 ///
-/// Precisely, let `roots(v)` be the set of roots depending on a vertex `v`.
+/// Precisely, let `roots(v)` be the set of roots depending transitively on a vertex `v`.
 /// Let the input graph be `G=(V, E)`. This function returns the graph
 /// `(V', E')` where `V'` is the quotient of `V` by the equivalence relation
 /// "two vertices are equivalent if they have the same image by `roots`"
@@ -24,12 +24,9 @@ use depgraph::*;
 /// * n²+m in space
 /// * (n²+m)r in time
 ///
-/// This function is meant to be executed on the result of `condense`, which
-/// has a better complexity and does a quite good job.
-///
 /// Expected simplification: as I write theses lines, on my store (`NixOS`, 37G)
 /// * before: n=37594, m=262914
-/// * after `condense`: n=3604, m=15076
+/// * after `condense`: n=61, m=211
 pub fn condense(mut di: DepInfos) -> DepInfos {
     let mut g = di.graph.map(|_, _| 0u16, |_, _| ());
 

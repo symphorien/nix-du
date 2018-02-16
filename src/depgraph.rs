@@ -31,6 +31,7 @@ impl Derivation {
             is_root: p.is_root != 0,
         }
     }
+
     pub fn dummy() -> Self {
         Derivation {
             path: CString::default(),
@@ -39,6 +40,10 @@ impl Derivation {
         }
     }
 
+    /// Return `blah` when the path of the
+    /// derivation is `/nix/store/<hash>-blah`
+    /// In case of failure, may return a bigger
+    /// slice of the path.
     pub fn name(&self) -> &[u8] {
         let whole = &self.path.to_bytes();
         if self.is_root {
@@ -68,6 +73,7 @@ pub struct DepInfos {
     pub roots: Vec<NodeIndex>,
 }
 
+// symbol exported to libnix_adapter
 #[no_mangle]
 pub extern "C" fn register_node(g: *mut DepGraph, p: *const bindings::path_t) {
     let p: &bindings::path_t = unsafe { p.as_ref().unwrap() };
@@ -76,6 +82,7 @@ pub extern "C" fn register_node(g: *mut DepGraph, p: *const bindings::path_t) {
     g.add_node(drv);
 }
 
+// symbol exported to libnix_adapter
 #[no_mangle]
 pub extern "C" fn register_edge(g: *mut DepGraph, from: u32, to: u32) {
     let g: &mut DepGraph = unsafe { g.as_mut().unwrap() };
@@ -83,6 +90,9 @@ pub extern "C" fn register_edge(g: *mut DepGraph, from: u32, to: u32) {
 }
 
 impl DepInfos {
+    /// returns the dependency graph of the nix-store
+    /// actual connection specifics are left to libnixstore
+    /// (reading ourselves, connecting to a daemon...)
     pub fn read_from_store() -> Self {
         let mut g = DepGraph::new();
         let gptr = &mut g as *mut _ as *mut c_void;
@@ -91,6 +101,8 @@ impl DepInfos {
         DepInfos::new_from_graph(g)
     }
 
+    /// given a `DepGraph`, build the `root` attr of 
+    /// the corresponding `DepInfos` and return it
     pub fn new_from_graph(g: DepGraph) -> Self {
         let roots = g.node_references()
             .filter_map(|(idx, drv)| if drv.is_root { Some(idx) } else { None })
@@ -100,6 +112,7 @@ impl DepInfos {
         debug_assert!(di.roots_attr_coherent());
         di
     }
+
     /// returns the sum of the size of all the derivations reachable from a root
     #[cfg(test)]
     pub fn reachable_size(&self) -> u64 {
