@@ -257,7 +257,7 @@ mod tests {
     fn check_condense() {
         // 62 so that each node is uniquely determined by its size, and
         // merging nodes doesn't destroy this information
-        for _ in 0..60 {
+        for _ in 0..80 {
             let old = generate_random(62, 10);
             let mut old_rev = old.graph.clone();
             old_rev.reverse();
@@ -277,16 +277,48 @@ mod tests {
                 res
             };
             let mut nodes_image = collections::BTreeSet::<collections::BTreeSet<_>>::new();
-            for idx in new.graph.node_indices() {
+            for (idx, drv) in new.graph.node_references() {
                 let after = get_dependent_roots(true, idx);
-                eprintln!("{:?} -> {:?}", idx, after);
-                for element in size_to_old_nodes(&new.graph[idx]) {
+                let elements = size_to_old_nodes(drv);
+                for &element in &elements {
                     let before = get_dependent_roots(false, element);
-                    assert_eq!(before, after);
+                    assert_eq!(
+                        before,
+                        after,
+                        "new:{:?} and old:{:?} do not belong to the same equlivalence class ({:?} != {:?})",
+                        idx,
+                        element,
+                        after,
+                        before
+                    );
                 }
                 nodes_image.insert(after);
+                // here check edges
+                for (idx2, drv2) in new.graph.node_references() {
+                    let targets = size_to_old_nodes(drv2);
+                    let should_exist = idx != idx2 &&
+                        elements.iter().any(|&from| {
+                            targets.iter().any(
+                                |&to| old.graph.find_edge(from, to).is_some(),
+                            )
+                        });
+                    let exists = new.graph.find_edge(idx, idx2).is_some();
+                    assert_eq!(
+                        should_exist,
+                        exists,
+                        "edge {:?} -> {:?} is wrong (expected: {:?})",
+                        idx,
+                        idx2,
+                        should_exist
+                    );
+                }
+
             }
-            assert_eq!(nodes_image.len(), new.graph.node_count());
+            assert_eq!(
+                nodes_image.len(),
+                new.graph.node_count(),
+                "two nodes at least have the same equivalence class"
+            );
         }
     }
     #[test]
