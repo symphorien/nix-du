@@ -27,3 +27,9 @@ clap = "2"
 
 [dev-dependencies]
 rand = "0.4"
+
+[patch.crates-io]
+# until https://github.com/fangyuanziti/which-rs/pull/5 is merged
+which = { git = "https://github.com/symphorien/which-rs" }
+# until https://github.com/Thomasdezeeuw/human-size-rs/pull/3 is merged
+human-size = { git = "https://github.com/symphorien/human-size-rs" }
