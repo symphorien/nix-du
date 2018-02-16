@@ -174,6 +174,7 @@ mod tests {
     use std::collections;
     use std::ffi::CString;
     use petgraph::prelude::NodeIndex;
+    use petgraph::visit::IntoNodeReferences;
 
     /// asserts that `transform` preserves
     /// * the set of roots, py path
@@ -192,6 +193,7 @@ mod tests {
     /// * the expected average degree of the graph should be `avg_degree`
     /// * the first 62 nodes have size `1<<index`
     fn generate_random(size: u32, avg_degree: u32) -> DepInfos {
+        assert!(avg_degree <= size - 1);
         let mut items = vec![
             Weighted {
                 weight: avg_degree,
@@ -284,6 +286,59 @@ mod tests {
                 nodes_image.insert(after);
             }
             assert_eq!(nodes_image.len(), new.graph.node_count());
+        }
+    }
+    #[test]
+    fn check_keep() {
+        let filter_drv = |drv: &Derivation| drv.size % 3 == 2; // half of the drvs
+        let real_filter = |drv: &Derivation| drv.is_root || filter_drv(drv);
+        for _ in 0..1000 {
+            let old = generate_random(62, 10);
+            let new = keep(old.clone(), &filter_drv);
+            println!(
+                "OLD:\n{:?}\nNew:\n{:?}",
+                petgraph::dot::Dot::new(&old.graph),
+                petgraph::dot::Dot::new(&new.graph)
+            );
+            //   * labels
+            let labels = |di: &DepInfos, all| {
+                di.graph
+                    .raw_nodes()
+                    .iter()
+                    .filter_map(|n| if all || real_filter(&n.weight) {
+                        Some(n.weight.path.clone())
+                    } else {
+                        None
+                    })
+                    .collect::<collections::BTreeSet<_>>()
+            };
+            assert_eq!(labels(&old, false), labels(&new, true));
+            //  * size
+            let filtered = petgraph::visit::EdgeFiltered::from_fn(
+                &old.graph,
+                |e| !filter_drv(&old.graph[e.target()]),
+            );
+            let mut space = petgraph::algo::DfsSpace::new(&filtered);
+            for (_, drv) in new.graph.node_references() {
+                let top = NodeIndex::from(drv.path.to_str().unwrap().parse::<u32>().unwrap());
+                assert!(drv.size & (1u64 << top.index()) != 0);
+                for i in 0..62 {
+                    if drv.size & (1u64 << i) != 0 {
+                        let child = NodeIndex::from(i);
+                        assert!(
+                            petgraph::algo::has_path_connecting(
+                                &filtered,
+                                top,
+                                child,
+                                Some(&mut space),
+                            ),
+                            "should not have coalesced {:?} and {:?}",
+                            top,
+                            child
+                        );
+                    }
+                }
+            }
         }
     }
 }
