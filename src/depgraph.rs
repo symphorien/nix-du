@@ -152,6 +152,6 @@ impl DepInfos {
         let from_structure: collections::BTreeSet<NodeIndex> = self.graph
             .externals(petgraph::Direction::Incoming)
             .collect();
-        from_attr == from_nodes && from_nodes == from_structure
+        from_attr == from_nodes && from_nodes.is_subset(&from_structure)
     }
 }
