@@ -5,10 +5,10 @@ extern crate clap;
 extern crate human_size;
 extern crate petgraph;
 
-mod depgraph;
-mod dot;
-mod reduction;
-mod bindings;
+pub mod depgraph;
+pub mod dot;
+pub mod reduction;
+pub mod bindings;
 use std::io;
 use human_size::Size;
 
