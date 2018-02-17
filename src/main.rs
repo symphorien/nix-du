@@ -41,7 +41,7 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
                 .long("min-size")
                 .value_name("SIZE")
                 .help(
-                    "Hide nodes below this size (a unit should be specified: -s=\"50 MB\")",
+                    "Hide nodes below this size (a unit should be specified: -s=50MB)",
                 )
                 .takes_value(true),
         )
