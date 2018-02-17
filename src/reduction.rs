@@ -131,7 +131,7 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
 /// are merged).
 ///
 /// Note that `filter` will be called at most once per node.
-pub fn keep(mut di: DepInfos, filter: &Fn(&Derivation) -> bool) -> DepInfos {
+pub fn keep<T: Fn(&Derivation) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
     let mut new_ids = collections::BTreeMap::new();
     let mut new_graph = DepGraph::new();
 
@@ -249,8 +249,8 @@ mod tests {
         for _ in 0..40 {
             let di = generate_random(250, 10);
             check_invariants(condense, di.clone());
-            check_invariants(|x| keep(x, &|_| false), di.clone());
-            check_invariants(|x| keep(x, &|_| true), di.clone());
+            check_invariants(|x| keep(x, |_| false), di.clone());
+            check_invariants(|x| keep(x, |_| true), di.clone());
         }
     }
     #[test]

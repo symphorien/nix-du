@@ -107,7 +107,7 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
     }
 
     if min_size > 0 {
-        g = reduction::keep(g, &|d| d.size >= min_size);
+        g = reduction::keep(g, |d: &depgraph::Derivation| d.size >= min_size);
     }
 
     {
