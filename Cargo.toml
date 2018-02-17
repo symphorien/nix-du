@@ -27,6 +27,8 @@ clap = "2"
 
 [dev-dependencies]
 rand = "0.4"
+cli_test_dir = "0.1"
+regex = "0.2"
 
 [patch.crates-io]
 # until https://github.com/Thomasdezeeuw/human-size-rs/pull/3 is merged
