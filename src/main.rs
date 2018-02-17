@@ -85,15 +85,17 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
         None => 0,
     };
 
+    eprint!("Reading dependency graph from store... ");
     let mut g = depgraph::DepInfos::read_from_store();
     eprintln!(
-        "The graph before has n={}, m={}",
+        "{} nodes, {} edges read.",
         g.graph.node_count(),
         g.graph.edge_count()
     );
+    eprint!("Computing quotient graph... ");
     g = reduction::condense(g);
     eprintln!(
-        "The graph after has n={}, m={}",
+        "{} nodes, {} edges",
         g.graph.node_count(),
         g.graph.edge_count()
     );
@@ -106,11 +108,6 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
 
     if min_size > 0 {
         g = reduction::keep(g, &|d| d.size >= min_size);
-        eprintln!(
-            "The graph after³ has n={}, m={}",
-            g.graph.node_count(),
-            g.graph.edge_count()
-        );
     }
 
     {
