@@ -93,12 +93,17 @@ pub fn prepare_store(spec: &Specification, t: &TestDir) {
             .arg("-q")
             .arg("--tree")
             .arg(&roots_dir.join(spec[root]))
-            .output()
-            .unwrap()
+            .expect_success()
             .stdout;
         println!("{}", String::from_utf8_lossy(&x));
 
     }
+}
+
+fn check_syntax<T: AsRef<[u8]>>(out: T, t: &TestDir) {
+    let temp = t.path("out.dot");
+    t.create_file(&temp, out);
+    Command::new("dot").arg("-o/dev/null").arg(temp).expect_success();
 }
 
 pub fn run_with_spec(test_name: &'static str, spec: &Specification) -> String {
@@ -106,9 +111,10 @@ pub fn run_with_spec(test_name: &'static str, spec: &Specification) -> String {
 
     prepare_store(&spec, &t);
 
-    let stdout = call_self(&t).output().expect("nix-du failed !").stdout;
+    let stdout = call_self(&t).expect_success().stdout;
     let out = String::from_utf8_lossy(&stdout);
     println!("Got output:\n{}", &out);
+    check_syntax(&stdout, &t);
     out.into_owned()
 }
 
