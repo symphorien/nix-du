@@ -21,7 +21,7 @@ memchr = "2"
 # output
 humansize = "1"
 # input
-human-size = "0.2"
+human-size = "0.3"
 palette = "0.2"
 clap = "2"
 
@@ -29,7 +29,3 @@ clap = "2"
 rand = "0.4"
 cli_test_dir = "0.1"
 regex = "0.2"
-
-[patch.crates-io]
-# until https://github.com/Thomasdezeeuw/human-size-rs/pull/3 is merged
-human-size = { git = "https://github.com/symphorien/human-size-rs" }
