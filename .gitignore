@@ -2,4 +2,3 @@
 **/*.rs.bk
 core
 *.swp
-Cargo.lock
