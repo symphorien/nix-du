@@ -5,17 +5,22 @@ What gc-roots should I remove in my nix store to free some space ?
 
 ## Getting started
 ### Building
-It is enough to have `nix` (1.11) installed.
+#### With `nix`
 ```
-$ git clone https://github.com/symphorien/nix-du
-$ cd nix-du
-$ nix-shell
-$ cargo build --release
-$ target/release/nix-du --help # it works :)
+$ nix-env -if https://github.com/symphorien/nix-du/archive/master.tar.gz
 ```
-One of the dependencies at least requires rust 1.20 at least.
-If you are on NixOS 17.09, replace `cargo` by `rust121bin.cargo`
-in `shell.nix` to get a new enough toolchain.
+For NixOS 17.09 users, use a more recent `nixpkgs`:
+```
+$ nix-env -I nixpkgs=https://nixos.org/channels/nixos-unstable/nixexprs.tar.xz -if https://github.com/symphorien/nix-du/archive/master.tar.gz
+```
+#### With `cargo`
+Just run `cargo build --release` at the root of the repository.
+One of the dependencies at least requires rust `>=1.20`.
+
+You need `nix`, `boost` (a dependency of `nix`) and `libclang` for 
+`bindgen`. If `bindgen` doesn't find some header files, you can pass
+it compile flags through the `BINDGEN_EXTRA_FLAGS` environment variable.
+Tests need `dot` in `$PATH`.
 
 ### Running
 `nix-du` generates a directed graph (more on that later) in the DOT format.
