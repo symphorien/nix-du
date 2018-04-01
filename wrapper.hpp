@@ -4,8 +4,14 @@
    /nix/store/cqhdk51xqxj1990v20y3wfnvhr0r8yds-nix-1.11.15-dev/include/nix/util.hh:362:24: error: implicit instantiation of undefined template 'std::__cxx11::basic_istringstream<char, std::char_traits<char>, std::allocator<char> >'
    /nix/store/c30dlkmiyrjxxjv6nv63igjkzcj1fzxi-gcc-6.4.0/include/c++/6.4.0/iosfwd:100:11: note: template is declared here
 */
-
 #include <sstream>
+
+/* the SYSTEM global is normally set by ./configure when compiling nix;
+ * define it.
+ */
+#ifndef SYSTEM
+#define SYSTEM "dummy"
+#endif
 
 #include <iostream>
 #include <unordered_map>
@@ -15,13 +21,13 @@
 
 extern "C" {
   typedef struct {
-    int is_root;
     const char* path;
     uint64_t size;
+    int is_root;
   } path_t;
   typedef struct {
+    std::shared_ptr<const nix::ValidPathInfo> data;
     unsigned index;
-    nix::ValidPathInfo data;
   } Info;
   extern void register_node(void *graph, path_t *node);
   extern void register_edge(void *graph, unsigned from, unsigned to);
@@ -35,13 +41,13 @@ extern "C" {
       auto it = node_to_id.find(p);
       if (it==node_to_id.end()) {
         Info info = {
+          store->queryPathInfo(p).get_ptr(), //data
           (unsigned)(node_to_id.size()), // index
-          store->queryPathInfo(p), //data
         };
         path_t entry;
         entry.is_root = 0;
-        entry.size = info.data.narSize;
-        entry.path = info.data.path.c_str();
+        entry.size = info.data->narSize;
+        entry.path = info.data->path.c_str();
         node_to_id[p] = info;
         register_node(graph, &entry);
         return info;
@@ -54,7 +60,7 @@ extern "C" {
 
     for (const Path& path: paths) {
       Info from = get_infos(path);
-      for (const Path& dep: from.data.references) {
+      for (const Path& dep: from.data->references) {
         Info to = get_infos(dep);
         register_edge(graph, from.index, to.index);
       }

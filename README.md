@@ -17,7 +17,7 @@ $ nix-env -I nixpkgs=https://nixos.org/channels/nixos-unstable/nixexprs.tar.xz -
 Just run `cargo build --release` at the root of the repository.
 One of the dependencies at least requires rust `>=1.20`.
 
-You need `nix`, `boost` (a dependency of `nix`) and `libclang` for 
+You need `nix` version 2, `boost` (a dependency of `nix`) and `libclang` for 
 `bindgen`. If `bindgen` doesn't find some header files, you can pass
 it compile flags through the `BINDGEN_EXTRA_FLAGS` environment variable.
 Tests need `dot` in `$PATH`.

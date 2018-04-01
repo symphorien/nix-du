@@ -13,7 +13,7 @@ fn main() {
 
 
     let mut builder = bindgen::Builder::default()
-        .clang_arg("-std=c++11")
+        .clang_arg("-std=c++14")
         .header("wrapper.hpp")
         .whitelist_type("path_t")
         .whitelist_function("populateGraph")
@@ -34,6 +34,7 @@ fn main() {
 
     cc::Build::new()
         .cpp(true) // Switch to C++ library compilation.
+        .flag("-std=c++14")
         .file("wrapper.cpp")
         .compile("libnix_adapter.a");
 
