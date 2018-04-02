@@ -15,7 +15,7 @@ use petgraph::visit::NodeRef;
 #[cfg(test)]
 use petgraph::visit::VisitMap;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Derivation {
     pub path: CString,
     pub size: u64,
@@ -60,6 +60,10 @@ impl Derivation {
                 }
             }
         }
+    }
+
+    pub fn is_inmemory_root(&self) -> bool {
+        self.path.as_bytes().starts_with(b"{memory")
     }
 }
 

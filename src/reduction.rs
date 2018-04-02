@@ -11,6 +11,38 @@ use petgraph::visit::EdgeRef;
 
 use depgraph::*;
 
+/// Merges all the in memory roots in one root.
+pub fn merge_inmemory_roots(di: DepInfos) -> DepInfos {
+    let DepInfos {
+        mut roots,
+        mut graph,
+    } = di;
+    let fake_root = Derivation {
+        path: std::ffi::CString::new("{memory}").unwrap(),
+        size: 0,
+        is_root: true,
+    };
+    let fake_root_idx = graph.add_node(fake_root);
+
+    roots = roots
+        .iter()
+        .cloned()
+        .filter(|&idx| if graph[idx].is_inmemory_root() {
+            graph.add_edge(fake_root_idx, idx, ());
+            graph[idx].is_root = false;
+            false
+        } else {
+            true
+        })
+        .collect();
+
+    roots.push(fake_root_idx);
+
+    DepInfos { roots, graph }
+}
+
+
+
 /// Computes a sort of condensation of the graph.
 ///
 /// Precisely, let `roots(v)` be the set of roots depending transitively on a vertex `v`.
@@ -127,6 +159,7 @@ mod tests {
     extern crate petgraph;
     extern crate rand;
     use self::rand::distributions::{IndependentSample, Weighted, WeightedChoice};
+    use self::rand::Rng;
     use depgraph::*;
     use reduction::*;
     use std::collections;
@@ -138,10 +171,12 @@ mod tests {
     /// * the set of roots, py path
     /// * reachable size
     /// and returns a coherent `DepInfos` (as per `roots_attr_coherent`)
-    fn check_invariants<T: Fn(DepInfos) -> DepInfos>(transform: T, di: DepInfos) {
+    fn check_invariants<T: Fn(DepInfos) -> DepInfos>(transform: T, di: DepInfos, same_roots: bool) {
         let orig = di.clone();
         let new = transform(di);
-        assert_eq!(new.roots_name(), orig.roots_name());
+        if same_roots {
+            assert_eq!(new.roots_name(), orig.roots_name());
+        }
         assert_eq!(new.reachable_size(), orig.reachable_size());
         assert!(new.roots_attr_coherent());
     }
@@ -166,7 +201,12 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut g: DepGraph = petgraph::graph::Graph::new();
         for i in 0..size {
-            let path = CString::new(i.to_string()).unwrap();
+            let name = if rng.gen() {
+                i.to_string()
+            } else {
+                format!("{{memory:{}}}", i)
+            };
+            let path = CString::new(name).unwrap();
             let size = if i < 62 {
                 1u64 << i
             } else {
@@ -200,16 +240,59 @@ mod tests {
             .map(NodeIndex::from)
             .collect()
     }
+    fn path_to_old_size(drv: &Derivation) -> u32 {
+        let only_digits: Vec<u8> = drv.path
+            .as_bytes()
+            .iter()
+            .cloned()
+            .filter(|x| x.is_ascii_digit())
+            .collect();
+        match String::from_utf8_lossy(&only_digits).parse() {
+            Ok(x) => x,
+            Err(_) => panic!("Cannot convert {:?} {:?}", drv.path, only_digits),
+        }
+    }
     #[test]
     /// check that condense and keep preserve some invariants
     fn invariants() {
         for _ in 0..40 {
             let di = generate_random(250, 10);
-            check_invariants(condense, di.clone());
-            check_invariants(|x| keep(x, |_| false), di.clone());
-            check_invariants(|x| keep(x, |_| true), di.clone());
+            check_invariants(merge_inmemory_roots, di.clone(), false);
+            check_invariants(condense, di.clone(), true);
+            check_invariants(|x| keep(x, |_| false), di.clone(), true);
+            check_invariants(|x| keep(x, |_| true), di.clone(), true);
         }
     }
+    #[test]
+    fn check_merge_inmemory_roots() {
+        for _ in 0..40 {
+            let old = generate_random(250, 10);
+            let new = merge_inmemory_roots(old.clone());
+            for edge in new.graph.edge_references() {
+                let old_child = &old.graph[edge.target()];
+                let new_child = &new.graph[edge.target()];
+                let new_parent = &new.graph[edge.source()];
+                if old.graph.edge_weight(edge.id()).is_some() {
+                    let old_parent = &old.graph[edge.source()];
+                    assert_eq!(old_parent.path, new_parent.path);
+                    assert_eq!(old_parent.size, new_parent.size);
+                    assert_eq!(old_child, new_child);
+                    if old_parent.is_root != new_parent.is_root {
+                        assert!(old_parent.is_root);
+                        assert!(!new_parent.is_root);
+                    }
+                } else {
+                    assert!(old_child.is_inmemory_root());
+                    assert!(old_child.is_root);
+                    assert!(!new_child.is_root);
+                    assert_eq!(new_parent.path.as_bytes(), b"{memory}");
+                    assert_eq!(new_parent.size, 0);
+                    assert_eq!(new_parent.is_root, true);
+                }
+            }
+        }
+    }
+
     #[test]
     fn check_condense() {
         // 62 so that each node is uniquely determined by its size, and
@@ -315,7 +398,7 @@ mod tests {
             );
             let mut space = petgraph::algo::DfsSpace::new(&filtered);
             for (id, drv) in new.graph.node_references() {
-                let top = NodeIndex::from(drv.path.to_str().unwrap().parse::<u32>().unwrap());
+                let top = NodeIndex::from(path_to_old_size(drv));
                 assert!(drv.size & (1u64 << top.index()) != 0);
                 for child in size_to_old_nodes(drv) {
                     assert!(
@@ -327,8 +410,7 @@ mod tests {
                 }
                 // also check edges from here
                 for (id2, drv2) in new.graph.node_references() {
-                    let bottom =
-                        NodeIndex::from(drv2.path.to_str().unwrap().parse::<u32>().unwrap());
+                    let bottom = NodeIndex::from(path_to_old_size(drv2));
                     let targets = size_to_old_nodes(drv2);
                     let mut path_from_here_to = |targets: collections::BTreeSet<NodeIndex>| {
                         targets.iter().any(|&target| {
