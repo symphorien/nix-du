@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0
 
+extern crate fixedbitset;
 extern crate memchr;
 extern crate petgraph;
 
 use std;
 use std::collections;
 
-use petgraph::prelude::NodeIndex;
 use petgraph::visit::EdgeRef;
 
 use depgraph::*;
@@ -21,70 +21,27 @@ use depgraph::*;
 /// equivalence class which have a corresponding edge in `G`.
 ///
 /// Complexity: with n vertices, m edges and r roots:
-/// * n²+m in space
-/// * (n²+m)r in time
+/// * nln(r)+m in space
+/// * nln(n)+m in time
 ///
 /// Expected simplification: as I write theses lines, on my store (`NixOS`, 37G)
 /// * before: n=37594, m=262914
 /// * after `condense`: n=61, m=211
 pub fn condense(mut di: DepInfos) -> DepInfos {
-    let mut g = di.graph.map(|_, _| 0u16, |_, _| ());
+    let template = fixedbitset::FixedBitSet::with_capacity(di.roots.len());
+    let mut g = di.graph.map(|_, _| template.clone(), |_, _| ());
 
     // add a fake root
-    let fake_root = g.add_node(0);
+    let fake_root = g.add_node(template);
     for root in &di.roots {
         g.add_edge(fake_root, *root, ());
     }
 
-    // label each node with its "rsize", the number of roots it is a dependence of
-    let mut max_rsize = 0;
-    for root in (&di.roots).iter().cloned() {
+    // label each node with roots it is a dependence of
+    for (i, root) in (&di.roots).iter().cloned().enumerate() {
         let mut bfs = petgraph::visit::Bfs::new(&g, root);
         while let Some(nx) = bfs.next(&g) {
-            g[nx] += 1;
-            max_rsize = std::cmp::max(max_rsize, g[nx]);
-        }
-    }
-
-    // for each pair of nodes with same rsize, to know whether they are in the same
-    // class, we add a child node.
-    max_rsize += 1;
-    let mut nodes_by_rsize = std::iter::repeat(Vec::new())
-        .take(max_rsize as usize)
-        .collect::<Vec<Vec<NodeIndex>>>();
-    for idx in g.node_indices() {
-        let rsize = g[idx] as usize;
-        if rsize > 0 {
-            nodes_by_rsize[rsize].push(idx);
-        }
-        g[idx] = 0;
-    }
-    for n in &nodes_by_rsize {
-        for &i in n {
-            for &j in n {
-                if i != j {
-                    let x = g.add_node(0);
-                    g.add_edge(i, x, ());
-                    g.add_edge(j, x, ());
-                }
-            }
-        }
-    }
-
-    // label each node with its "rsize", the number of roots it is a dependence of
-    for root in (&di.roots).iter().cloned() {
-        let mut bfs = petgraph::visit::Bfs::new(&g, root);
-        while let Some(nx) = bfs.next(&g) {
-            g[nx] += 1;
-        }
-    }
-
-    // compute equivalence classes
-    let mut uf = petgraph::unionfind::UnionFind::new(g.node_count());
-    for edge in g.raw_edges() {
-        // parent and child are in the same class iff they have the same label
-        if g[edge.source()] == g[edge.target()] {
-            uf.union(edge.source().index(), edge.target().index());
+            g[nx].insert(i);
         }
     }
 
@@ -93,7 +50,7 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
 
     // now remove spurious elements from the original graph.
     // removing nodes is slow, so we create a new graph for that.
-    let mut new_ids = collections::BTreeMap::new();
+    let mut new_ids = collections::BTreeMap::new(); // set of roots => new node index
     let mut new_graph = DepGraph::new();
 
     // we take as representative the topmost element of the class,
@@ -102,7 +59,7 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
         if idx >= fake_root {
             continue;
         }
-        let representative = NodeIndex::from(uf.find_mut(idx.index()));
+        let representative = &g[idx];
         let new_node = new_ids.entry(representative).or_insert_with(|| {
             let mut w = Derivation::dummy();
             std::mem::swap(&mut w, &mut di.graph[idx]);
@@ -113,8 +70,8 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
 
     // keep edges
     for edge in g.raw_edges() {
-        let from = NodeIndex::from(uf.find(edge.source().index()));
-        let to = NodeIndex::from(uf.find(edge.target().index()));
+        let from = &g[edge.source()];
+        let to = &g[edge.target()];
         if from != to {
             // unreachable nodes don't have a counterpart in the new graph
             if let (Some(&newfrom), Some(&newto)) = (new_ids.get(&from), new_ids.get(&to)) {

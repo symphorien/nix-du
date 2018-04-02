@@ -17,6 +17,7 @@ shlex = "0.1"
 
 [dependencies]
 petgraph = "0.4"
+fixedbitset = "0.1"
 memchr = "2"
 # output
 humansize = "1"
