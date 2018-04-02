@@ -105,7 +105,7 @@ impl DepInfos {
         DepInfos::new_from_graph(g)
     }
 
-    /// given a `DepGraph`, build the `root` attr of 
+    /// given a `DepGraph`, build the `root` attr of
     /// the corresponding `DepInfos` and return it
     pub fn new_from_graph(g: DepGraph) -> Self {
         let roots = g.node_references()

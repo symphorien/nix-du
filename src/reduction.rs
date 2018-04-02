@@ -325,7 +325,7 @@ mod tests {
                     assert_eq!(
                         before,
                         after,
-                        "new:{:?} and old:{:?} do not belong to the same equlivalence class ({:?} != {:?})",
+                        "new:{:?} and old:{:?} do not belong to the same equivalence class ({:?} != {:?})",
                         idx,
                         element,
                         after,
