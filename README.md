@@ -22,6 +22,9 @@ You need `nix` version 2, `boost` (a dependency of `nix`) and `libclang` for
 it compile flags through the `BINDGEN_EXTRA_FLAGS` environment variable.
 Tests need `dot` in `$PATH`.
 
+Note that `nix` 2 is only needed to build nix-du; `nix-du` should be able to talk to a
+`nix` 1 daemon.
+
 ### Running
 `nix-du` generates a directed graph (more on that later) in the DOT format.
 Therefore you need `dot` installed (it is usually available under the package name `graphviz`).
@@ -30,8 +33,8 @@ Then you can translate the graph in various more "traditional" image formats.
 For example:
 ```sh
 # to svg
-nix-du -n 60 | dot -Tsvg > store.svg
-# to png; use tred to remove a few more edges (recommended)
+nix-du -n 60 | tred | dot -Tsvg > store.svg
+# to png
 nix-du -n 60 | tred | dot -Tpng > store.png
 ```
 Another option is to use an interactive viewer such as `zgrviewer`
@@ -39,10 +42,14 @@ Another option is to use an interactive viewer such as `zgrviewer`
 nix-du -n 60 | tred > store.dot
 zgrviewer store.dot
 ```
+
+Piping `nix-du`'s output through `tred` as above simplifies the graph and is highly recommended,
+although not mandatory.
+
 ### Interpreting
 On the left are the gc-roots. The other nodes are labeled with a package name, but it has little meaning. What
 matters is their size. Blue means "lightest"; red means "heaviest".
-An edge from A to B means "you won't be able to remove B as long as A is live". If you remove all
+An edge from A to B means "you won't be able to remove B as long as A is alive". If you remove all
 incoming edges of a node, it _should_ go away when you run `nix-collect-garbage` and this _should_ free approximately
 the displayed amount of space.
 
