@@ -33,52 +33,54 @@ extern "C" {
   extern void register_edge(void *graph, unsigned from, unsigned to);
   void populateGraph(void *graph) {
     using namespace nix;
-    initNix();
-    auto store = openStore();
+    handleExceptions("nix-du", [graph]() {
+      initNix();
+      auto store = openStore();
 
-    std::unordered_map<Path, Info> node_to_id;
-    auto get_infos = [&] (const Path& p) {
-      auto it = node_to_id.find(p);
-      if (it==node_to_id.end()) {
-        Info info = {
-          store->queryPathInfo(p).get_ptr(), //data
-          (unsigned)(node_to_id.size()), // index
-        };
+      std::unordered_map<Path, Info> node_to_id;
+      auto get_infos = [&] (const Path& p) {
+        auto it = node_to_id.find(p);
+        if (it==node_to_id.end()) {
+          Info info = {
+            store->queryPathInfo(p).get_ptr(), //data
+            (unsigned)(node_to_id.size()), // index
+          };
+          path_t entry;
+          entry.is_root = 0;
+          entry.size = info.data->narSize;
+          entry.path = info.data->path.c_str();
+          node_to_id[p] = info;
+          register_node(graph, &entry);
+          return info;
+        } else {
+          return it->second;
+        }
+      };
+
+      std::set<Path> paths = store->queryAllValidPaths();
+
+      for (const Path& path: paths) {
+        Info from = get_infos(path);
+        for (const Path& dep: from.data->references) {
+          Info to = get_infos(dep);
+          register_edge(graph, from.index, to.index);
+        }
+      }
+
+      unsigned index = node_to_id.size();
+      for (auto root : store->findRoots()) {
+        Path link, storepath;
+        std::tie(link, storepath) = root;
         path_t entry;
-        entry.is_root = 0;
-        entry.size = info.data->narSize;
-        entry.path = info.data->path.c_str();
-        node_to_id[p] = info;
+        entry.is_root = 1;
+        entry.size = link.size();
+        entry.path = link.c_str();
         register_node(graph, &entry);
-        return info;
-      } else {
-        return it->second;
+        Info to = get_infos(storepath);
+        register_edge(graph, index, to.index);
+        ++index;
       }
-    };
-
-    std::set<Path> paths = store->queryAllValidPaths();
-
-    for (const Path& path: paths) {
-      Info from = get_infos(path);
-      for (const Path& dep: from.data->references) {
-        Info to = get_infos(dep);
-        register_edge(graph, from.index, to.index);
-      }
-    }
-
-    unsigned index = node_to_id.size();
-    for (auto root : store->findRoots()) {
-      Path link, storepath;
-      std::tie(link, storepath) = root;
-      path_t entry;
-      entry.is_root = 1;
-      entry.size = link.size();
-      entry.path = link.c_str();
-      register_node(graph, &entry);
-      Info to = get_infos(storepath);
-      register_edge(graph, index, to.index);
-      ++index;
-    }
+    });
   }
 }
 
