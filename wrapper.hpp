@@ -31,9 +31,9 @@ extern "C" {
   } Info;
   extern void register_node(void *graph, path_t *node);
   extern void register_edge(void *graph, unsigned from, unsigned to);
-  void populateGraph(void *graph) {
+  int populateGraph(void *graph) {
     using namespace nix;
-    handleExceptions("nix-du", [graph]() {
+    return handleExceptions("nix-du", [graph]() {
       initNix();
       auto store = openStore();
 

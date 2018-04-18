@@ -86,7 +86,10 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
     };
 
     eprint!("Reading dependency graph from store... ");
-    let mut g = depgraph::DepInfos::read_from_store();
+    let mut g = depgraph::DepInfos::read_from_store().unwrap_or_else(|res| {
+        eprintln!("Could not read from store");
+        std::process::exit(res)
+    });
     eprintln!(
         "{} nodes, {} edges read.",
         g.graph.node_count(),

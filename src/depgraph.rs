@@ -97,12 +97,12 @@ impl DepInfos {
     /// returns the dependency graph of the nix-store
     /// actual connection specifics are left to libnixstore
     /// (reading ourselves, connecting to a daemon...)
-    pub fn read_from_store() -> Self {
+    pub fn read_from_store() -> Result<Self, i32> {
         let mut g = DepGraph::new();
         let gptr = &mut g as *mut _ as *mut c_void;
-        unsafe { bindings::populateGraph(gptr) };
+        let res = unsafe { bindings::populateGraph(gptr) };
 
-        DepInfos::new_from_graph(g)
+        if res == 0 { Ok(DepInfos::new_from_graph(g)) } else { Err(res) }
     }
 
     /// given a `DepGraph`, build the `root` attr of
