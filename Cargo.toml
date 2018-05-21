@@ -11,9 +11,7 @@ panic = "abort"
 panic = "abort"
 
 [build-dependencies]
-bindgen = "0.32"
 cc = "1.0"
-shlex = "0.1"
 
 [dependencies]
 petgraph = "0.4"
