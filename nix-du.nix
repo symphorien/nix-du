@@ -2,23 +2,21 @@
 rustPlatform, nix, boost, 
 clangStdenv, clang, llvmPackages,
 graphviz,
+cargoSha256 ? "04c48lzi7hny3nq4ffdpvsr4dxbi32faka163fp1yc9953zdw9az",
 source ?
   with stdenv.lib.sources;
   let filter = name: type:
   let filename = baseNameOf (toString name); in
   !(type == "directory" && filename == "target");
   in
-  {
-    src = cleanSourceWith { inherit filter; src = cleanSource ./.; };
-    # must be changed when Cargo.lock is modified
-    cargoSha256 = "04c48lzi7hny3nq4ffdpvsr4dxbi32faka163fp1yc9953zdw9az";
-  }
+    cleanSourceWith { inherit filter; src = cleanSource ./.; }
 }:
 rustPlatform.buildRustPackage rec {
   name = "nix-du-${version}";
   version = "0.1.0";
 
-  inherit (source) src cargoSha256;
+  src = source;
+  inherit cargoSha256;
 
   doCheck = true;
   checkInputs = [ graphviz ];
