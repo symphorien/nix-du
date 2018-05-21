@@ -95,7 +95,7 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
         g.graph.node_count(),
         g.graph.edge_count()
     );
-    g = reduction::merge_inmemory_roots(g);
+    g = reduction::merge_transient_roots(g);
     eprint!("Computing quotient graph... ");
     g = reduction::condense(g);
     eprintln!(

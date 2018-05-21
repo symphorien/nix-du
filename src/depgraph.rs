@@ -62,8 +62,9 @@ impl Derivation {
         }
     }
 
-    pub fn is_inmemory_root(&self) -> bool {
-        self.path.as_bytes().starts_with(b"{memory")
+    pub fn is_transient_root(&self) -> bool {
+        let name = self.path.as_bytes();
+        name.starts_with(b"{memory:") || name.starts_with(b"{temp:")
     }
 }
 

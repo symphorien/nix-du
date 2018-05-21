@@ -11,14 +11,16 @@ use petgraph::visit::EdgeRef;
 
 use depgraph::*;
 
+static TRANSIENT_ROOT_NAME: &'static str = "{memory/temp}";
+
 /// Merges all the in memory roots in one root.
-pub fn merge_inmemory_roots(di: DepInfos) -> DepInfos {
+pub fn merge_transient_roots(di: DepInfos) -> DepInfos {
     let DepInfos {
         mut roots,
         mut graph,
     } = di;
     let fake_root = Derivation {
-        path: std::ffi::CString::new("{memory}").unwrap(),
+        path: std::ffi::CString::new(TRANSIENT_ROOT_NAME).unwrap(),
         size: 0,
         is_root: true,
     };
@@ -27,7 +29,7 @@ pub fn merge_inmemory_roots(di: DepInfos) -> DepInfos {
     roots = roots
         .iter()
         .cloned()
-        .filter(|&idx| if graph[idx].is_inmemory_root() {
+        .filter(|&idx| if graph[idx].is_transient_root() {
             graph.add_edge(fake_root_idx, idx, ());
             graph[idx].is_root = false;
             false
@@ -204,7 +206,8 @@ mod tests {
             let name = if rng.gen() {
                 i.to_string()
             } else {
-                format!("{{memory:{}}}", i)
+                let typ = if rng.gen() { "memory" } else { "temp" };
+                format!("{{{}:{}}}", typ, i)
             };
             let path = CString::new(name).unwrap();
             let size = if i < 62 {
@@ -257,17 +260,17 @@ mod tests {
     fn invariants() {
         for _ in 0..40 {
             let di = generate_random(250, 10);
-            check_invariants(merge_inmemory_roots, di.clone(), false);
+            check_invariants(merge_transient_roots, di.clone(), false);
             check_invariants(condense, di.clone(), true);
             check_invariants(|x| keep(x, |_| false), di.clone(), true);
             check_invariants(|x| keep(x, |_| true), di.clone(), true);
         }
     }
     #[test]
-    fn check_merge_inmemory_roots() {
+    fn check_merge_transient_roots() {
         for _ in 0..40 {
             let old = generate_random(250, 10);
-            let new = merge_inmemory_roots(old.clone());
+            let new = merge_transient_roots(old.clone());
             for edge in new.graph.edge_references() {
                 let old_child = &old.graph[edge.target()];
                 let new_child = &new.graph[edge.target()];
@@ -282,10 +285,10 @@ mod tests {
                         assert!(!new_parent.is_root);
                     }
                 } else {
-                    assert!(old_child.is_inmemory_root());
+                    assert!(old_child.is_transient_root());
                     assert!(old_child.is_root);
                     assert!(!new_child.is_root);
-                    assert_eq!(new_parent.path.as_bytes(), b"{memory}");
+                    assert_eq!(new_parent.path.as_bytes(), TRANSIENT_ROOT_NAME.as_bytes());
                     assert_eq!(new_parent.size, 0);
                     assert_eq!(new_parent.is_root, true);
                 }

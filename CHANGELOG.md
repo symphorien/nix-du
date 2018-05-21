@@ -1,3 +1,7 @@
+master:
+
+* temporary roots are now aggregated with memory roots.
+
 v0.1.1
 
 * `bindgen` is no longer a build-time dependency. Bindings are committed to the repo.
