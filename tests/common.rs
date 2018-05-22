@@ -20,6 +20,11 @@ fn setup_nix_env(mut c: Command, t: &TestDir) -> Command {
         ("NIX_LOG_DIR", "var/log/nix"),
         ("NIX_STATE_DIR", "var/nix"),
         ("NIX_CONF_DIR", "etc"),
+        // On osx, nix uses a minimal sandbox even with --option sandbox false
+        // Trouble is, setting up a sandbox inside a sandbox is forbidden and we get:
+        // sandbox-exec: sandbox_apply_container: Operation not permitted
+        // Let's disable this.
+        ("_NIX_TEST_NO_SANDBOX", "1"),
     ]
     {
         let dir = store_root.join(value);
