@@ -82,6 +82,9 @@ pub fn prepare_store(spec: &Specification, t: &TestDir) {
     for root in spec.externals(petgraph::Direction::Incoming) {
         println!("Building {}", spec[root]);
         call("nix-build", t)
+            .arg("--option")
+            .arg("sandbox")
+            .arg("false")
             .arg(&pkgs)
             .arg("-A")
             .arg(spec[root])
