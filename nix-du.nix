@@ -13,7 +13,7 @@ source ?
 }:
 rustPlatform.buildRustPackage rec {
   name = "nix-du-${version}";
-  version = "0.1.0";
+  version = "0.1.1";
 
   src = source;
   inherit cargoSha256;
@@ -26,6 +26,8 @@ rustPlatform.buildRustPackage rec {
     boost
     nix
   ];
+
+  RUST_BACKTRACE=1;
 
   meta = with stdenv.lib; {
     description = "A tool to determine which gc-roots take space in your nix store";

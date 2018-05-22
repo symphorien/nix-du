@@ -1,2 +1,5 @@
 language: nix
+os:
+  - linux
+  - osx
 script: nix-build test.nix
