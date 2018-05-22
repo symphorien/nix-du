@@ -1,6 +1,7 @@
 master:
 
 * temporary roots are now aggregated with memory roots.
+* fix sandboxed builds on darwin.
 
 v0.1.1
 
