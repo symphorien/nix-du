@@ -33,13 +33,13 @@ Then you can translate the graph in various more "traditional" image formats.
 For example:
 ```sh
 # to svg
-nix-du -n 60 | tred | dot -Tsvg > store.svg
+nix-du -s=500MB | tred | dot -Tsvg > store.svg
 # to png
-nix-du -n 60 | tred | dot -Tpng > store.png
+nix-du -s=500MB | tred | dot -Tpng > store.png
 ```
 Another option is to use an interactive viewer such as `zgrviewer`
 ```sh
-nix-du -n 60 | tred > store.dot
+nix-du -s=500MB | tred > store.dot
 zgrviewer store.dot
 ```
 
@@ -93,7 +93,7 @@ by the same set of gc-roots"
 * There is an edge between two classes if it is not a self loop and there was an edge between any elements of the classes
 in the original graph
 
-The representent of the class inherits the total size of the class and the name of an arbitary member.
+The representent of the class inherits the total size of the class and the name of an arbitrary member.
 This is sometimes useful, but also often meaningless. For example I have already seen a huge node `glibc-locales` with 
 an edge to texlive components which is surprising since `glibc-locales` has no references...
 
@@ -104,7 +104,8 @@ is done so results may be less accurate (but far more readable !)
 Only live paths are displayed.
 
 ### I asked for 60 nodes with `-n 60` but I got 120!
-gc-roots are always kept in the final graph.
+When you apply a filter with `-n` or `-s` all roots which have a (transitive) child kept by the filter are kept as well.
+Remaining roots are merged in the `{filtered out}` node.
 
 ### I removed a huge node and yet `nix-collect-garbage` freed only little space
 For now `nix-du` does not take hard linked files (see `nix-store --optimise`) into account which means that if they belong

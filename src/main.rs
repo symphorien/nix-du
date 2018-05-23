@@ -25,13 +25,20 @@ fn main() {
 This program outputs a graph on stdout in the dot format which may help you figuring out which
 gc-roots should be removed in order to reclaim space in the nix store.
 
-To get started, just run `nix-du -n 60 | tred | dot -Tsvg > /tmp/blah.svg` and then view the result
-in a browser or dedicated software like zgrviewer.
+To get started, if you are interested in freeing, say, 500MB, run
+`nix-du -s 500MB | tred | dot -Tsvg > /tmp/blah.svg`
+and then view the result in a browser or dedicated software like zgrviewer.
 
 The exact meaning of the graph is as follows: if you use neither -s nor -n then a node is the
 equivalence class of all store paths on which the exact same set of gc-roots depend. The size is
 meant to be accurate, but the label is that of an arbitrary store path of this equivalence class.
 An arrow from A to B means that to get rid of B you have to get rid of A before.
+
+With some options, you can filter out some more nodes to make the graph more readable. Note
+that gc-roots which don't match such filters but have a filtered-in child are kept.
+
+The graph can be further simplified by piping it to `tred` (transitive reduction) which is usually
+provided as part of graphviz. This is strongly recommmended.
 ",
         )
         .version(crate_version!())
@@ -52,7 +59,7 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
                 .value_name("N")
                 .conflicts_with("min-size")
                 .help(
-                    "Only keep the approximately N biggest nodes (union gc-roots)",
+                    "Only keep the approximately N biggest nodes",
                 )
                 .takes_value(true),
         )
@@ -64,7 +71,7 @@ An arrow from A to B means that to get rid of B you have to get rid of A before.
                 .parse::<Size>()
                 .unwrap_or_else(|_| {
                     clap::Error::value_validation_auto(
-    "The argument to --min-size is not a valid syntax. Try -s=\"5 MB\" for example."
+    "The argument to --min-size is not a valid syntax. Try -s=5MB for example."
     .to_owned()).exit()
                 })
                 .into_bytes() as u64

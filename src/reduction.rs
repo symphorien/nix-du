@@ -12,6 +12,7 @@ use petgraph::visit::EdgeRef;
 use depgraph::*;
 
 static TRANSIENT_ROOT_NAME: &'static str = "{memory/temp}";
+static FILTERED_ROOT_NAME: &'static str = "{filtered out}";
 
 /// Merges all the in memory roots in one root.
 pub fn merge_transient_roots(di: DepInfos) -> DepInfos {
@@ -116,42 +117,83 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
     DepInfos::new_from_graph(new_graph)
 }
 
-/// Creates a new graph only retaining roots and nodes whose weight return
+/// Creates a new graph retaining only nodes whose weight return
 /// `true` when passed to `filter`. The nodes which are dropped are
 /// merged into an arbitrary parent (ie. the name is dropped, but edges and size
-/// are merged).
+/// are merged). Roots which have at least a transitive childi kept are kept as
+/// well. Other roots (and the size gathered below) are merged in a dummy root.
 ///
 /// Note that `filter` will be called at most once per node.
 pub fn keep<T: Fn(&Derivation) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
-    let mut new_ids = collections::BTreeMap::new();
     let mut new_graph = DepGraph::new();
+    // ids of nodes put in new_graph
+    let mut new_ids = collections::BTreeMap::new();
+    // weights of roots which are not yet added to the graph
+    // they are added on demand when we realize one of their children is kept
+    let mut ondemand_weights = collections::BTreeMap::new();
+    // ids of kept nodes + roots
+    let mut old_kept_ids = collections::BTreeSet::new();
 
+    // loop over nodes to see which we keep
     for idx in di.graph.node_indices() {
-        if di.graph[idx].is_root || filter(&di.graph[idx]) {
+        let keep = filter(&di.graph[idx]);
+        if di.graph[idx].is_root || keep {
             let mut new_w = Derivation::dummy();
             std::mem::swap(&mut di.graph[idx], &mut new_w);
-            new_ids.insert(idx, new_graph.add_node(new_w));
+            old_kept_ids.insert(idx);
+            if keep {
+                new_ids.insert(idx, new_graph.add_node(new_w));
+            } else {
+                ondemand_weights.insert(idx, new_w);
+            }
         }
     }
+    // visit the old graph to add new edges accordingly
     let frozen = petgraph::graph::Frozen::new(&mut di.graph);
-    for (&old, &new) in &new_ids {
+    for &old in &old_kept_ids {
+        // this filter visits the graph starting at old
+        // stopping when reaching a kept child
         let filtered = petgraph::visit::EdgeFiltered::from_fn(&*frozen, |e| {
-            e.source() == old || !new_ids.contains_key(&e.source())
+            e.source() == old || !old_kept_ids.contains(&e.source())
         });
         let mut dfs = petgraph::visit::Dfs::new(&filtered, old);
         let old_ = dfs.next(&filtered); // skip old
         debug_assert_eq!(Some(old), old_);
         while let Some(idx) = dfs.next(&filtered) {
             if let Some(&new2) = new_ids.get(&idx) {
+                // kept child
+                // let's add an edge from old to this child
+                let new = match ondemand_weights.remove(&old) {
+                    Some(new_w) => {
+                        // this is an ondemand root, add it to new_graph
+                        let t = new_graph.add_node(new_w);
+                        new_ids.insert(old, t);
+                        t
+                    },
+                    None => new_ids[&old],
+                };
                 new_graph.add_edge(new, new2, ());
             } else {
-                new_graph[new].size += frozen[idx].size;
+                // this child is not kept
+                // absorb its size upstream
+                let wup: &mut Derivation = ondemand_weights.get_mut(&old).unwrap_or_else(|| &mut new_graph[new_ids[&old]]);
+                wup.size += frozen[idx].size;
                 unsafe {
                     let w: *mut Derivation = &frozen[idx] as *const _ as *mut _;
                     (*w).size = 0;
                 }
             }
         }
+    }
+    // to keep the size unchanged, we create a dummy root with the remaining size
+    let remaining_size = ondemand_weights.values().map(|drv| drv.size).sum();
+    if remaining_size > 0 {
+        let fake_root = Derivation {
+            path: std::ffi::CString::new(FILTERED_ROOT_NAME).unwrap(),
+            size: remaining_size,
+            is_root: true,
+        };
+        new_graph.add_node(fake_root);
     }
     DepInfos::new_from_graph(new_graph)
 }
@@ -168,6 +210,7 @@ mod tests {
     use std::ffi::CString;
     use petgraph::prelude::NodeIndex;
     use petgraph::visit::IntoNodeReferences;
+    use petgraph::visit::NodeRef;
 
     /// asserts that `transform` preserves
     /// * the set of roots, py path
@@ -262,7 +305,7 @@ mod tests {
             let di = generate_random(250, 10);
             check_invariants(merge_transient_roots, di.clone(), false);
             check_invariants(condense, di.clone(), true);
-            check_invariants(|x| keep(x, |_| false), di.clone(), true);
+            check_invariants(|x| keep(x, |_| false), di.clone(), false);
             check_invariants(|x| keep(x, |_| true), di.clone(), true);
         }
     }
@@ -366,24 +409,61 @@ mod tests {
     }
     #[test]
     fn check_keep() {
-        let filter_drv = |drv: &Derivation| drv.size % 3 == 2; // half of the drvs
-        let real_filter = |drv: &Derivation| drv.is_root || filter_drv(drv);
+        let filter_drv = |drv: &Derivation| drv.size % 8 == 0; // third of the drvs
+        let real_filter = |graph: &DepGraph, n: NodeIndex| 
+        {
+            let drv = &graph[n];
+            let mut keep = false;
+            if drv.is_root {
+                let mut dfs = petgraph::visit::Dfs::new(&graph, n);
+                while let Some(idx) = dfs.next(&graph) {
+                    if filter_drv(&graph[idx]) {
+                        keep = true;
+                        break;
+                    }
+                }
+                keep
+            } else {
+                filter_drv(&drv)
+            }
+        };
         for _ in 0..50 {
-            let old = generate_random(62, 10);
-            let new = keep(old.clone(), &filter_drv);
+            let old = generate_random(62, 1);
+            let mut new = keep(old.clone(), &filter_drv);
             println!(
                 "OLD:\n{:?}\nNew:\n{:?}",
                 petgraph::dot::Dot::new(&old.graph),
                 petgraph::dot::Dot::new(&new.graph)
             );
+            // first let's get rid of {filtered out}
+            let fake_roots =
+                new.graph
+                    .node_references()
+                    .filter_map(|n| 
+                        if n.weight().path.as_bytes() == FILTERED_ROOT_NAME.as_bytes() {
+                        Some(n.id())
+                    } else {
+                        None
+                    })
+                    .collect::<collections::BTreeSet<_>>();
+            assert!(fake_roots.len() < 2, "fake_roots={:?}", fake_roots);
+            if let Some(&id) = fake_roots.iter().next() {
+                new.graph.remove_node(id);
+                let index = new.roots.iter().position(|&x| x== id).unwrap();
+                new.roots.remove(index);
+            }
             // nodes:
+            //   * roots
+            let old_roots = old.roots_name();
+            let new_roots = new.roots_name();
+            assert!(old_roots.is_superset(&new_roots));
+            assert!(fake_roots.len() == 1 || new_roots.is_superset(&old_roots));
             //   * labels
             let labels = |di: &DepInfos, all| {
                 di.graph
-                    .raw_nodes()
-                    .iter()
-                    .filter_map(|n| if all || real_filter(&n.weight) {
-                        Some(n.weight.path.clone())
+                    .node_references()
+                    .filter_map(|n| if all || real_filter(&di.graph, n.id()) {
+                        Some(n.weight().path.clone())
                     } else {
                         None
                     })
