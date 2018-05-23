@@ -71,14 +71,16 @@ extern "C" {
       for (auto root : store->findRoots()) {
         Path link, storepath;
         std::tie(link, storepath) = root;
-        path_t entry;
-        entry.is_root = 1;
-        entry.size = link.size();
-        entry.path = link.c_str();
-        register_node(graph, &entry);
-        Info to = get_infos(storepath);
-        register_edge(graph, index, to.index);
-        ++index;
+        if (store->isValidPath(storepath)) {
+          path_t entry;
+          entry.is_root = 1;
+          entry.size = link.size();
+          entry.path = link.c_str();
+          register_node(graph, &entry);
+          Info to = get_infos(storepath);
+          register_edge(graph, index, to.index);
+          ++index;
+        }
       }
     });
   }
