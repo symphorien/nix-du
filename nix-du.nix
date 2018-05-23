@@ -18,9 +18,17 @@ source ?
   in
     cleanSourceWith { inherit filter; src = cleanSource ./.; }
 }:
+let
+  cargotoml = builtins.readFile ./Cargo.toml;
+  matches = builtins.match ''.*
+version *= *"([^"]*)" *
+.*'' cargotoml;
+  version = builtins.head matches;
+in
+
 rustPlatform.buildRustPackage rec {
   name = "nix-du-${version}";
-  version = "0.1.1";
+  inherit version;
 
   src = source;
   inherit cargoSha256;
