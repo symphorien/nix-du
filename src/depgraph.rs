@@ -12,7 +12,6 @@ use bindings;
 use petgraph::prelude::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
 use petgraph::visit::NodeRef;
-#[cfg(test)]
 use petgraph::visit::VisitMap;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -119,7 +118,6 @@ impl DepInfos {
     }
 
     /// returns the sum of the size of all the derivations reachable from a root
-    #[cfg(test)]
     pub fn reachable_size(&self) -> u64 {
         let mut dfs = petgraph::visit::Dfs::empty(&self.graph);
         let mut sum = 0;

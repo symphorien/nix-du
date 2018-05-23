@@ -3,6 +3,7 @@
 #[macro_use]
 extern crate clap;
 extern crate human_size;
+extern crate humansize;
 extern crate petgraph;
 
 pub mod depgraph;
@@ -11,6 +12,7 @@ pub mod reduction;
 pub mod bindings;
 use std::io;
 use human_size::Size;
+use humansize::FileSize;
 
 /* so that these functions are available in libnix_adepter.a */
 pub use depgraph::{register_node, register_edge};
@@ -105,6 +107,20 @@ provided as part of graphviz. This is strongly recommmended.
         g.graph.node_count(),
         g.graph.edge_count()
     );
+
+    let dead_size = g.graph.raw_nodes().iter().map(|n| n.weight.size).sum();
+    let alive_size = g.reachable_size();
+    let to_human_readable = |size: u64| {
+        size.file_size(humansize::file_size_opts::BINARY)
+            .unwrap_or("nan".to_owned())
+    };
+    eprintln!(
+        "Store size: {} alive, {} dead, {} total (modulo store optimisation).",
+        to_human_readable(alive_size),
+        to_human_readable(dead_size - alive_size),
+        to_human_readable(dead_size)
+    );
+
     g = reduction::merge_transient_roots(g);
     eprint!("Computing quotient graph... ");
     g = reduction::condense(g);
