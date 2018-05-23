@@ -17,12 +17,10 @@ $ nix-env -I nixpkgs=https://nixos.org/channels/nixos-unstable/nixexprs.tar.xz -
 Just run `cargo build --release` at the root of the repository.
 One of the dependencies at least requires rust `>=1.20`.
 
-You need `nix` version 2, `boost` (a dependency of `nix`) and `libclang` for 
-`bindgen`. If `bindgen` doesn't find some header files, you can pass
-it compile flags through the `BINDGEN_EXTRA_FLAGS` environment variable.
+You need `nix` version 2 and `boost` (a dependency of `nix`).
 Tests need `dot` in `$PATH`.
 
-Note that `nix` 2 is only needed to build nix-du; `nix-du` should be able to talk to a
+Note that `nix` 2 is only needed to build `nix-du`; `nix-du` should be able to talk to a
 `nix` 1 daemon.
 
 ### Running
