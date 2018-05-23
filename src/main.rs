@@ -24,25 +24,24 @@ fn main() {
         )
         .long_about(
             "
-This program outputs a graph on stdout in the dot format which may help you figuring out which
+This program outputs a graph on stdout in the dot format which may help you figuring out which \
 gc-roots should be removed in order to reclaim space in the nix store.
 
 To get started, if you are interested in freeing, say, 500MB, run
 `nix-du -s 500MB | tred | dot -Tsvg > /tmp/blah.svg`
 and then view the result in a browser or dedicated software like zgrviewer.
 
-Without options, `nix-du` outputs a graph where all nodes on which the same set of
-gc-roots depend are coalesced into one. The resulting node has the size of the sum,
-and the label of an arbitrary component. An arrow from A to B means that while A is
-alive, B is also alive.
+Without options, `nix-du` outputs a graph where all nodes on which the same set of gc-roots depend \
+are coalesced into one. The resulting node has the size of the sum, and the label of an arbitrary \
+component. An arrow from A to B means that while A is alive, B is also alive.
 
-As a rule of thumb, a node labeled `foo, 30KB` means that if you remove enough roots to get rid of
+As a rule of thumb, a node labeled `foo, 30KB` means that if you remove enough roots to get rid of \
 this node, then you will free `30KB`. The label `foo` may or may not have a meaning.
 
-With some options, you can filter out some more nodes to make the graph more readable. Note
-that gc-roots which don't match such filters but have a filtered-in child are kept.
+With some options, you can filter out some more nodes to make the graph more readable. Note that \
+gc-roots which don't match such filters but have a filtered-in child are kept.
 
-The graph can be further simplified by piping it to `tred` (transitive reduction) which is usually
+The graph can be further simplified by piping it to `tred` (transitive reduction) which is usually \
 provided as part of graphviz. This is strongly recommmended.
 ",
         )
