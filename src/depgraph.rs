@@ -102,7 +102,11 @@ impl DepInfos {
         let gptr = &mut g as *mut _ as *mut c_void;
         let res = unsafe { bindings::populateGraph(gptr) };
 
-        if res == 0 { Ok(DepInfos::new_from_graph(g)) } else { Err(res) }
+        if res == 0 {
+            Ok(DepInfos::new_from_graph(g))
+        } else {
+            Err(res)
+        }
     }
 
     /// given a `DepGraph`, build the `root` attr of

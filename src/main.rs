@@ -63,9 +63,7 @@ provided as part of graphviz. This is strongly recommmended.
                 .long("nodes")
                 .value_name("N")
                 .conflicts_with("min-size")
-                .help(
-                    "Only keep the approximately N biggest nodes",
-                )
+                .help("Only keep the approximately N biggest nodes")
                 .takes_value(true),
         )
         .get_matches();
@@ -76,8 +74,9 @@ provided as part of graphviz. This is strongly recommmended.
                 .parse::<Size>()
                 .unwrap_or_else(|_| {
                     clap::Error::value_validation_auto(
-    "The argument to --min-size is not a valid syntax. Try -s=5MB for example."
-    .to_owned()).exit()
+                        "The argument to --min-size is not a valid syntax. Try -s=5MB for example."
+                            .to_owned(),
+                    ).exit()
                 })
                 .into_bytes() as u64
         }

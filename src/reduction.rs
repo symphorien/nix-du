@@ -169,14 +169,16 @@ pub fn keep<T: Fn(&Derivation) -> bool>(mut di: DepInfos, filter: T) -> DepInfos
                         let t = new_graph.add_node(new_w);
                         new_ids.insert(old, t);
                         t
-                    },
+                    }
                     None => new_ids[&old],
                 };
                 new_graph.add_edge(new, new2, ());
             } else {
                 // this child is not kept
                 // absorb its size upstream
-                let wup: &mut Derivation = ondemand_weights.get_mut(&old).unwrap_or_else(|| &mut new_graph[new_ids[&old]]);
+                let wup: &mut Derivation = ondemand_weights.get_mut(&old).unwrap_or_else(|| {
+                    &mut new_graph[new_ids[&old]]
+                });
                 wup.size += frozen[idx].size;
                 unsafe {
                     let w: *mut Derivation = &frozen[idx] as *const _ as *mut _;
@@ -410,8 +412,7 @@ mod tests {
     #[test]
     fn check_keep() {
         let filter_drv = |drv: &Derivation| drv.size % 8 == 0; // third of the drvs
-        let real_filter = |graph: &DepGraph, n: NodeIndex| 
-        {
+        let real_filter = |graph: &DepGraph, n: NodeIndex| {
             let drv = &graph[n];
             let mut keep = false;
             if drv.is_root {
@@ -436,20 +437,20 @@ mod tests {
                 petgraph::dot::Dot::new(&new.graph)
             );
             // first let's get rid of {filtered out}
-            let fake_roots =
-                new.graph
-                    .node_references()
-                    .filter_map(|n| 
-                        if n.weight().path.as_bytes() == FILTERED_ROOT_NAME.as_bytes() {
-                        Some(n.id())
-                    } else {
-                        None
-                    })
-                    .collect::<collections::BTreeSet<_>>();
+            let fake_roots = new.graph
+                .node_references()
+                .filter_map(|n| if n.weight().path.as_bytes() ==
+                    FILTERED_ROOT_NAME.as_bytes()
+                {
+                    Some(n.id())
+                } else {
+                    None
+                })
+                .collect::<collections::BTreeSet<_>>();
             assert!(fake_roots.len() < 2, "fake_roots={:?}", fake_roots);
             if let Some(&id) = fake_roots.iter().next() {
                 new.graph.remove_node(id);
-                let index = new.roots.iter().position(|&x| x== id).unwrap();
+                let index = new.roots.iter().position(|&x| x == id).unwrap();
                 new.roots.remove(index);
             }
             // nodes:
