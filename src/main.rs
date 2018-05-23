@@ -29,10 +29,13 @@ To get started, if you are interested in freeing, say, 500MB, run
 `nix-du -s 500MB | tred | dot -Tsvg > /tmp/blah.svg`
 and then view the result in a browser or dedicated software like zgrviewer.
 
-The exact meaning of the graph is as follows: if you use neither -s nor -n then a node is the
-equivalence class of all store paths on which the exact same set of gc-roots depend. The size is
-meant to be accurate, but the label is that of an arbitrary store path of this equivalence class.
-An arrow from A to B means that to get rid of B you have to get rid of A before.
+Without options, `nix-du` outputs a graph where all nodes on which the same set of
+gc-roots depend are coalesced into one. The resulting node has the size of the sum,
+and the label of an arbitrary component. An arrow from A to B means that while A is
+alive, B is also alive.
+
+As a rule of thumb, a node labeled `foo, 30KB` means that if you remove enough roots to get rid of
+this node, then you will free `30KB`. The label `foo` may or may not have a meaning.
 
 With some options, you can filter out some more nodes to make the graph more readable. Note
 that gc-roots which don't match such filters but have a filtered-in child are kept.
