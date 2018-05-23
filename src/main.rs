@@ -66,6 +66,12 @@ provided as part of graphviz. This is strongly recommmended.
                 .help("Only keep the approximately N biggest nodes")
                 .takes_value(true),
         )
+        .arg(
+            clap::Arg::with_name("quiet")
+                .short("q")
+                .long("quiet")
+                .help("Don't print informationnal messages on stderr"),
+        )
         .get_matches();
 
     let mut min_size = match matches.value_of("min-size") {
@@ -95,39 +101,45 @@ provided as part of graphviz. This is strongly recommmended.
         }
         None => 0,
     };
+    let quiet = matches.is_present("quiet");
+    // like `eprintln!` but only if `-q` has not been specified.
+    macro_rules! msg {
+        ($($arg:expr),+) => {
+            if !quiet {
+                eprint!($($arg),*);
+            }
+        }
+    }
 
-    eprint!("Reading dependency graph from store... ");
+    msg!("Reading dependency graph from store... ");
     let mut g = depgraph::DepInfos::read_from_store().unwrap_or_else(|res| {
         eprintln!("Could not read from store");
         std::process::exit(res)
     });
-    eprintln!(
-        "{} nodes, {} edges read.",
+    msg!(
+        "{} nodes, {} edges read.\n",
         g.graph.node_count(),
         g.graph.edge_count()
     );
 
-    let dead_size = g.graph.raw_nodes().iter().map(|n| n.weight.size).sum();
-    let alive_size = g.reachable_size();
-    let to_human_readable = |size: u64| {
-        size.file_size(humansize::file_size_opts::BINARY)
-            .unwrap_or("nan".to_owned())
-    };
-    eprintln!(
-        "Store size: {} alive, {} dead, {} total (modulo store optimisation).",
-        to_human_readable(alive_size),
-        to_human_readable(dead_size - alive_size),
-        to_human_readable(dead_size)
-    );
+    if !quiet {
+        let dead_size = g.graph.raw_nodes().iter().map(|n| n.weight.size).sum();
+        let alive_size = g.reachable_size();
+        let to_human_readable = |size: u64| {
+            size.file_size(humansize::file_size_opts::BINARY)
+                .unwrap_or("nan".to_owned())
+        };
+        msg!(
+            "Store size: {} alive, {} dead, {} total (modulo store optimisation).\n",
+            to_human_readable(alive_size),
+            to_human_readable(dead_size - alive_size),
+            to_human_readable(dead_size)
+        );
+    }
 
     g = reduction::merge_transient_roots(g);
-    eprint!("Computing quotient graph... ");
+    msg!("Computing quotient graph... ");
     g = reduction::condense(g);
-    eprintln!(
-        "{} nodes, {} edges",
-        g.graph.node_count(),
-        g.graph.edge_count()
-    );
 
     if n_nodes > 0 && n_nodes < g.graph.node_count() {
         let mut sizes: Vec<u64> = g.graph.raw_nodes().iter().map(|n| n.weight.size).collect();
@@ -138,6 +150,11 @@ provided as part of graphviz. This is strongly recommmended.
     if min_size > 0 {
         g = reduction::keep(g, |d: &depgraph::Derivation| d.size >= min_size);
     }
+    msg!(
+        "{} nodes, {} edges.\n",
+        g.graph.node_count(),
+        g.graph.edge_count()
+    );
 
     {
         let stdout = io::stdout();
