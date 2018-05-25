@@ -98,16 +98,19 @@ an edge to texlive components which is surprising since `glibc-locales` has no r
 If you use any of `-s` (only keep nodes bigger than a given size) or `-n` (only keep the `n` biggest nodes) then an approximation
 is done so results may be less accurate (but far more readable !)
 
-### But my store is far havier than displayed!
+### My store is far heavier than the graph suggests!
 Only live paths are displayed.
+
+### My store is far lighter than displayed!
+Your store is optimized with `nix-store --optimise` and `nix-du` does not take this into account.
+If a `1 GB` file has 3 deduplicated copies, they will count for `3 GB` for `nix-du`.
+
+### I removed a huge node and yet `nix-collect-garbage` freed only little space!
+See the item above
 
 ### I asked for 60 nodes with `-n 60` but I got 120!
 When you apply a filter with `-n` or `-s` all roots which have a (transitive) child kept by the filter are kept as well.
 Remaining roots are merged in the `{filtered out}` node.
-
-### I removed a huge node and yet `nix-collect-garbage` freed only little space
-For now `nix-du` does not take hard linked files (see `nix-store --optimise`) into account which means that if they belong
-to 3 derivations they will be counted 3 times.
 
 ## Limitations
 * no optimised store support
