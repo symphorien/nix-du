@@ -5,6 +5,18 @@ What gc-roots should I remove in my nix store to free some space ?
 
 ## Getting started
 ### Building
+#### Installation from `nixpkgs`
+`nix-du` is available in `nixpkgs >= 18.09-pre`, see the badge below.
+
+[![Packaging status](https://repology.org/badge/vertical-allrepos/nix-du.svg)](https://repology.org/metapackage/nix-du)
+
+If the channel you follow is not recent enough, no worry:
+```
+nix-env -f channel:nixos-unstable -iA nix-du
+```
+
+If the version you get this way is too old, the two following methods will give you access to the lastest version.
+
 #### With `nix`
 ```
 $ nix-env -if https://github.com/symphorien/nix-du/archive/master.tar.gz
