@@ -20,9 +20,8 @@ source ?
 }:
 let
   cargotoml = builtins.readFile ./Cargo.toml;
-  matches = builtins.match ''.*
-version *= *"([^"]*)" *
-.*'' cargotoml;
+  reg = ''.*[[]package[]][^]]*version *= *"([^"]*)".*'';
+  matches = builtins.match reg cargotoml;
   version = builtins.head matches;
 in
 
