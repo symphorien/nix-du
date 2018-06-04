@@ -22,6 +22,7 @@ humansize = "1"
 # input
 human-size = "0.3"
 palette = "0.2"
+walkdir = "2"
 
 [dependencies.clap]
 version = "2"

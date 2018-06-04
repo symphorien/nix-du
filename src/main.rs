@@ -10,12 +10,29 @@ pub mod depgraph;
 pub mod dot;
 pub mod reduction;
 pub mod bindings;
+pub mod opt;
 use std::io;
 use human_size::Size;
 use humansize::FileSize;
 
 /* so that these functions are available in libnix_adepter.a */
 pub use depgraph::{register_node, register_edge};
+
+fn print_stats(msg: &'static str, g: &depgraph::DepInfos) {
+    let dead_size = g.graph.raw_nodes().iter().map(|n| n.weight.size).sum();
+    let alive_size = g.reachable_size();
+    let to_human_readable = |size: u64| {
+        size.file_size(humansize::file_size_opts::BINARY)
+            .unwrap_or("nan".to_owned())
+    };
+    eprintln!(
+        "Store size {}:\t{} alive, {} dead, {} total.",
+        msg,
+        to_human_readable(alive_size),
+        to_human_readable(dead_size - alive_size),
+        to_human_readable(dead_size)
+    );
+}
 
 fn main() {
     let matches = clap::App::new("nix-du")
@@ -122,18 +139,15 @@ provided as part of graphviz. This is strongly recommmended.
     );
 
     if !quiet {
-        let dead_size = g.graph.raw_nodes().iter().map(|n| n.weight.size).sum();
-        let alive_size = g.reachable_size();
-        let to_human_readable = |size: u64| {
-            size.file_size(humansize::file_size_opts::BINARY)
-                .unwrap_or("nan".to_owned())
-        };
-        msg!(
-            "Store size: {} alive, {} dead, {} total (modulo store optimisation).\n",
-            to_human_readable(alive_size),
-            to_human_readable(dead_size - alive_size),
-            to_human_readable(dead_size)
-        );
+        print_stats("(no optimization)", &g);
+    }
+
+    opt::refine_optimized_store(&mut g).unwrap_or_else(|e| {
+        eprintln!("Could not unoptimize {:?}", e)
+    });
+
+    if !quiet {
+        print_stats("(with optimization)", &g);
     }
 
     g = reduction::merge_transient_roots(g);
