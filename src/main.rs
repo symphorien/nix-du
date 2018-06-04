@@ -6,11 +6,14 @@ extern crate human_size;
 extern crate humansize;
 extern crate petgraph;
 
+#[macro_use]
+pub mod msg;
 pub mod depgraph;
 pub mod dot;
 pub mod reduction;
 pub mod bindings;
 pub mod opt;
+use msg::*;
 use std::io;
 use human_size::Size;
 use humansize::FileSize;
@@ -83,6 +86,14 @@ provided as part of graphviz. This is strongly recommmended.
                 .takes_value(true),
         )
         .arg(
+            clap::Arg::with_name("optlevel")
+                .short("O")
+                .long("opt-level")
+                .value_name("N")
+                .help("whether to take store optimisation into account: 0: no, 1: live paths, 2:all paths (default 1)")
+                .takes_value(true),
+        )
+        .arg(
             clap::Arg::with_name("quiet")
                 .short("q")
                 .long("quiet")
@@ -117,15 +128,13 @@ provided as part of graphviz. This is strongly recommmended.
         }
         None => 0,
     };
-    let quiet = matches.is_present("quiet");
-    // like `eprintln!` but only if `-q` has not been specified.
-    macro_rules! msg {
-        ($($arg:expr),+) => {
-            if !quiet {
-                eprint!($($arg),*);
-            }
-        }
-    }
+    let optlevel = match matches.value_of("optlevel").unwrap_or("1") {
+        "0" => 0,
+        "1" => 1,
+        "2" => 2,
+        _ => clap::Error::value_validation_auto("Only -O0, -O1, -O2 exist.".to_owned()).exit(),
+    };
+    set_quiet(matches.is_present("quiet"));
 
     msg!("Reading dependency graph from store... ");
     let mut g = depgraph::DepInfos::read_from_store().unwrap_or_else(|res| {
@@ -138,16 +147,26 @@ provided as part of graphviz. This is strongly recommmended.
         g.graph.edge_count()
     );
 
-    if !quiet {
+    noisy!({
         print_stats("(no optimization)", &g);
-    }
-
-    opt::refine_optimized_store(&mut g).unwrap_or_else(|e| {
-        eprintln!("Could not unoptimize {:?}", e)
     });
 
-    if !quiet {
-        print_stats("(with optimization)", &g);
+    if optlevel >= 1 {
+        if optlevel == 1 {
+            // drop dead paths
+            g = reduction::keep(g, |_| true);
+        }
+
+        msg!(
+            "Looking for optmized paths... (this could take a long time, use the option -O0 to disable)\n"
+        );
+        opt::refine_optimized_store(&mut g).unwrap_or_else(|e| {
+            eprintln!("Could not unoptimize {:?}", e)
+        });
+
+        noisy!({
+            print_stats("(with optimization)", &g);
+        });
     }
 
     g = reduction::merge_transient_roots(g);

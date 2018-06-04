@@ -1,6 +1,8 @@
 extern crate walkdir;
 
 use depgraph::*;
+use msg::*;
+
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::io::Result;
@@ -10,13 +12,15 @@ use std::path::Path;
 use self::walkdir::{WalkDir, DirEntryExt};
 use petgraph::prelude::NodeIndex;
 
-static SHARED_PREFIX : &'static [u8] = b"shared:";
+static SHARED_PREFIX: &'static [u8] = b"shared:";
 
 enum Owner {
     One(NodeIndex),
     Several(NodeIndex),
 }
 
+/// Stats all the files in the store looking for hardlinked files
+/// and adapt the sizes of the nodes to take this into account.
 pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
     // invariant:
     // forall visited file:
@@ -31,12 +35,11 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
     let mut inode_to_owner = BTreeMap::new();
 
     let mut indices: Vec<NodeIndex> = di.graph.node_indices().collect();
-    let total = indices.len();
+    let mut progress = Progress::new(indices.len());
     for (i, idx) in indices.drain(..).enumerate() {
-        // FIXME: progress
-        if i % 1000 == 0 {
-            eprint!("{} sur {}\r", i, total);
-        }
+        noisy!({
+            progress.print(i);
+        });
 
         let path: OsString;
         {
@@ -52,7 +55,7 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
 
         // if path is a symlink to a directory, we enumerate files not in this
         // derivation.
-        let p : &Path = path.as_ref();
+        let p: &Path = path.as_ref();
         if p.symlink_metadata()?.file_type().is_symlink() {
             continue;
         };
@@ -78,7 +81,7 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
                             {
                                 // borrow of di.graph;
                                 let name = di.graph[idx].name();
-                                path = Vec::with_capacity(name.len()+SHARED_PREFIX.len());
+                                path = Vec::with_capacity(name.len() + SHARED_PREFIX.len());
                                 path.extend(SHARED_PREFIX);
                                 path.extend(name);
                             }
