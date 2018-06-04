@@ -4,7 +4,7 @@ extern crate memchr;
 extern crate petgraph;
 
 use std::vec::Vec;
-use std::ffi::{CString, CStr};
+use std::ffi::CStr;
 use std::os::raw::c_void;
 use std::collections;
 use bindings;
@@ -16,7 +16,7 @@ use petgraph::visit::VisitMap;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Derivation {
-    pub path: CString,
+    pub path: Vec<u8>,
     pub size: u64,
     pub is_root: bool,
 }
@@ -25,7 +25,7 @@ impl Derivation {
     /// Note: clones the string describing the path.
     unsafe fn new(p: &bindings::path_t) -> Self {
         Derivation {
-            path: CStr::from_ptr(p.path).to_owned(),
+            path: CStr::from_ptr(p.path).to_bytes().iter().cloned().collect(),
             size: p.size,
             is_root: p.is_root != 0,
         }
@@ -33,7 +33,7 @@ impl Derivation {
 
     pub fn dummy() -> Self {
         Derivation {
-            path: CString::default(),
+            path: vec![],
             size: 0,
             is_root: false,
         }
@@ -44,7 +44,7 @@ impl Derivation {
     /// In case of failure, may return a bigger
     /// slice of the path.
     pub fn name(&self) -> &[u8] {
-        let whole = &self.path.to_bytes();
+        let whole = &self.path;
         if self.is_root {
             whole
         } else {
@@ -62,8 +62,7 @@ impl Derivation {
     }
 
     pub fn is_transient_root(&self) -> bool {
-        let name = self.path.as_bytes();
-        name.starts_with(b"{memory:") || name.starts_with(b"{temp:")
+        self.path.starts_with(b"{memory:") || self.path.starts_with(b"{temp:")
     }
 }
 
@@ -137,10 +136,11 @@ impl DepInfos {
     /// returns the set of paths of the roots
     /// intended for testing mainly
     #[cfg(test)]
-    pub fn roots_name(&self) -> collections::BTreeSet<&CString> {
+    pub fn roots_name(&self) -> collections::BTreeSet<Vec<u8>> {
         self.roots
             .iter()
             .map(|&idx| &self.graph[idx].path)
+            .cloned()
             .collect()
     }
     /// returns wether di.roots is really the set of indices of root nodes

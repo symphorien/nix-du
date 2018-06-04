@@ -4,11 +4,13 @@ use depgraph::*;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::io::Result;
-use std::ffi::CString;
+use std::os::unix::ffi::OsStringExt;
+use std::ffi::OsString;
 use std::path::Path;
 use self::walkdir::{WalkDir, DirEntryExt};
 use petgraph::prelude::NodeIndex;
 
+static SHARED_PREFIX : &'static [u8] = b"shared:";
 
 enum Owner {
     One(NodeIndex),
@@ -36,22 +38,22 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
             eprint!("{} sur {}\r", i, total);
         }
 
-        let owned_path: String;
+        let path: OsString;
         {
             // scope where we borrow the graph
             let weight = &di.graph[idx];
             // roots are not necessary readable, and anyway thery are symlinks
             // we also filter out dummy nodes like {memory}
-            if weight.is_root || weight.path.to_bytes().get(0) != Some(&b'/') {
+            if weight.is_root || weight.path.get(0) != Some(&b'/') {
                 continue;
             }
-            owned_path = weight.path.to_string_lossy().into_owned(); // FIXME lossy
+            path = OsString::from_vec(weight.path.clone());
         }
-        let path = &Path::new(&owned_path);
 
         // if path is a symlink to a directory, we enumerate files not in this
         // derivation.
-        if path.symlink_metadata()?.file_type().is_symlink() {
+        let p : &Path = path.as_ref();
+        if p.symlink_metadata()?.file_type().is_symlink() {
             continue;
         };
 
@@ -72,8 +74,16 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
                     let v = e.get_mut();
                     let new_node = match *v {
                         Owner::One(n) => {
+                            let mut path;
+                            {
+                                // borrow of di.graph;
+                                let name = di.graph[idx].name();
+                                path = Vec::with_capacity(name.len()+SHARED_PREFIX.len());
+                                path.extend(SHARED_PREFIX);
+                                path.extend(name);
+                            }
                             let new_node = di.graph.add_node(Derivation {
-                                path: CString::new(format!("shared under {}", owned_path)).unwrap(),
+                                path,
                                 size: metadata.len(),
                                 is_root: false,
                             });

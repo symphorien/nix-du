@@ -11,8 +11,8 @@ use petgraph::visit::EdgeRef;
 
 use depgraph::*;
 
-static TRANSIENT_ROOT_NAME: &'static str = "{memory/temp}";
-static FILTERED_ROOT_NAME: &'static str = "{filtered out}";
+static TRANSIENT_ROOT_NAME: &'static [u8] = b"{memory/temp}";
+static FILTERED_ROOT_NAME: &'static [u8] = b"{filtered out}";
 
 /// Merges all the in memory roots in one root.
 pub fn merge_transient_roots(di: DepInfos) -> DepInfos {
@@ -21,7 +21,7 @@ pub fn merge_transient_roots(di: DepInfos) -> DepInfos {
         mut graph,
     } = di;
     let fake_root = Derivation {
-        path: std::ffi::CString::new(TRANSIENT_ROOT_NAME).unwrap(),
+        path: TRANSIENT_ROOT_NAME.iter().cloned().collect(),
         size: 0,
         is_root: true,
     };
@@ -191,7 +191,7 @@ pub fn keep<T: Fn(&Derivation) -> bool>(mut di: DepInfos, filter: T) -> DepInfos
     let remaining_size = ondemand_weights.values().map(|drv| drv.size).sum();
     if remaining_size > 0 {
         let fake_root = Derivation {
-            path: std::ffi::CString::new(FILTERED_ROOT_NAME).unwrap(),
+            path: FILTERED_ROOT_NAME.iter().cloned().collect(),
             size: remaining_size,
             is_root: true,
         };
@@ -209,7 +209,6 @@ mod tests {
     use depgraph::*;
     use reduction::*;
     use std::collections;
-    use std::ffi::CString;
     use petgraph::prelude::NodeIndex;
     use petgraph::visit::IntoNodeReferences;
     use petgraph::visit::NodeRef;
@@ -254,7 +253,7 @@ mod tests {
                 let typ = if rng.gen() { "memory" } else { "temp" };
                 format!("{{{}:{}}}", typ, i)
             };
-            let path = CString::new(name).unwrap();
+            let path = name.into();
             let size = if i < 62 {
                 1u64 << i
             } else {
@@ -290,7 +289,6 @@ mod tests {
     }
     fn path_to_old_size(drv: &Derivation) -> u32 {
         let only_digits: Vec<u8> = drv.path
-            .as_bytes()
             .iter()
             .cloned()
             .filter(|x| x.is_ascii_digit())
@@ -333,7 +331,7 @@ mod tests {
                     assert!(old_child.is_transient_root());
                     assert!(old_child.is_root);
                     assert!(!new_child.is_root);
-                    assert_eq!(new_parent.path.as_bytes(), TRANSIENT_ROOT_NAME.as_bytes());
+                    assert_eq!(new_parent.path, TRANSIENT_ROOT_NAME);
                     assert_eq!(new_parent.size, 0);
                     assert_eq!(new_parent.is_root, true);
                 }
@@ -439,8 +437,8 @@ mod tests {
             // first let's get rid of {filtered out}
             let fake_roots = new.graph
                 .node_references()
-                .filter_map(|n| if n.weight().path.as_bytes() ==
-                    FILTERED_ROOT_NAME.as_bytes()
+                .filter_map(|n| if n.weight().path ==
+                    FILTERED_ROOT_NAME
                 {
                     Some(n.id())
                 } else {
