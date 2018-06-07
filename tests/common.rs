@@ -114,12 +114,12 @@ fn check_syntax<T: AsRef<[u8]>>(out: T, t: &TestDir) {
     Command::new("dot").arg("-o/dev/null").arg(temp).expect_success();
 }
 
-pub fn run_with_spec(test_name: &'static str, spec: &Specification) -> String {
+pub fn run_with_spec(test_name: &'static str, spec: &Specification, args: &'static [&'static str]) -> String {
     let t = cli_test_dir::TestDir::new("nix-du", test_name);
 
     prepare_store(&spec, &t);
 
-    let stdout = call_self(&t).expect_success().stdout;
+    let stdout = call_self(&t).args(args).expect_success().stdout;
     let out = String::from_utf8_lossy(&stdout);
     println!("Got output:\n{}", &out);
     check_syntax(&stdout, &t);
@@ -129,13 +129,13 @@ pub fn run_with_spec(test_name: &'static str, spec: &Specification) -> String {
 pub fn parse_out(out: String) -> Output {
     let mut res = Output::new();
     let mut id_to_node = std::collections::BTreeMap::new();
-    let node_re = regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([a-z]+) \(([^)]+)\)"#).unwrap();
+    let node_re = regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([ {}a-z]+) \(([^)]+)\)"#).unwrap();
     let edge_re = regex::Regex::new(r"N(\d+) -> N(\d+)").unwrap();
     for node in node_re.captures_iter(&out) {
         println!("node: {:?}", node);
         assert!(node.len() == 4);
         let id: u32 = node[1].parse().unwrap();
-        let name = node[2].to_owned();
+        let name = node[2].to_owned().replace(" ", "_").replace("{", "").replace("}", "");
         let size: Size = node[3].parse().unwrap(); // should be 100KB*num of deps
         let count = ((size.into_bytes() as f64) / 100_000f64) as u16;
         id_to_node.insert(id, res.add_node(Class { name, count }));
@@ -166,6 +166,7 @@ macro_rules! dec_spec {
     ($g:ident; $($id:ident),+ ; $($from:ident -> $to:ident),+) => {
         let mut $g = Specification::new();
         $(
+            #[allow(unused_variables)]
             let $id = $g.add_node(stringify!($id));
         )+
         $(
@@ -179,6 +180,7 @@ macro_rules! dec_out {
     ($g:ident; $($id:ident $count:expr),+ ; $($from:ident -> $to:ident),+) => {
         let mut $g = Output::new();
         $(
+            #[allow(unused_variables)]
             let $id = $g.add_node(Class { name: stringify!($id).to_owned(), count: $count });
         )+
         $(
@@ -202,16 +204,8 @@ macro_rules! dec_out {
 fn k2_1() {
     dec_spec!(spec; coucou, foo, bar; coucou -> foo, bar -> foo);
 
-    let expected: Output = spec.map(
-        |_, &name| {
-            Class {
-                name: name.to_owned(),
-                count: 1,
-            }
-        },
-        |_, _| (),
-    );
-    let real = parse_out(run_with_spec("k2_1", &spec));
+    dec_out!(expected; coucou 1, bar 1, foo 1, temporary 0; coucou -> foo, bar -> foo);
+    let real = parse_out(run_with_spec("k2_1", &spec, &[]));
     assert_matches(&real, &expected);
 }
 
@@ -221,7 +215,51 @@ fn simple() {
               coucou, foo, bar, baz, mux;
               coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
 
+    dec_out!(expected; coucou 2, bar 1, foo 2, temporary 0; coucou -> foo, bar -> foo);
+    let real = parse_out(run_with_spec("simple", &spec, &[]));
+    assert_matches(&real, &expected);
+}
+
+#[test]
+fn filter_size_root_kept() {
+    dec_spec!(spec;
+              coucou, foo, bar, baz, mux;
+              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
+
     dec_out!(expected; coucou 2, bar 1, foo 2; coucou -> foo, bar -> foo);
-    let real = parse_out(run_with_spec("simple", &spec));
+    let real = parse_out(run_with_spec("filter_size_root_kept", &spec, &["-s=150KB"]));
+    assert_matches(&real, &expected);
+}
+
+#[test]
+fn filter_size_root_not_kept() {
+    dec_spec!(spec;
+              coucou, foo, bar, baz, mux, frob;
+              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
+
+    dec_out!(expected; coucou 2, bar 1, foo 2, filtered_out 1; coucou -> foo, bar -> foo);
+    let real = parse_out(run_with_spec("filter_size_root_not_kept", &spec, &["-s=150KB"]));
+    assert_matches(&real, &expected);
+}
+
+#[test]
+fn filter_number_root_kept() {
+    dec_spec!(spec;
+              coucou, foo, bar, baz, mux;
+              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
+
+    dec_out!(expected; coucou 2, bar 1, foo 2; coucou -> foo, bar -> foo);
+    let real = parse_out(run_with_spec("filter_number_root_kept", &spec, &["-n2"]));
+    assert_matches(&real, &expected);
+}
+
+#[test]
+fn filter_number_root_not_kept() {
+    dec_spec!(spec;
+              coucou, foo, bar, baz, mux, frob;
+              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
+
+    dec_out!(expected; coucou 2, bar 1, foo 2, filtered_out 1; coucou -> foo, bar -> foo);
+    let real = parse_out(run_with_spec("filter_size_number_not_kept", &spec, &["-n2"]));
     assert_matches(&real, &expected);
 }

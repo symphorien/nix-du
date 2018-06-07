@@ -11,7 +11,7 @@ use petgraph::visit::EdgeRef;
 
 use depgraph::*;
 
-static TRANSIENT_ROOT_NAME: &'static [u8] = b"{memory/temp}";
+static TRANSIENT_ROOT_NAME: &'static [u8] = b"{temporary}";
 static FILTERED_ROOT_NAME: &'static [u8] = b"{filtered out}";
 
 /// Merges all the in memory roots in one root.
@@ -146,7 +146,7 @@ pub fn keep_reachable(mut di: DepInfos) -> DepInfos {
 /// Creates a new graph retaining only nodes whose weight return
 /// `true` when passed to `filter`. The nodes which are dropped are
 /// merged into an arbitrary parent (ie. the name is dropped, but edges and size
-/// are merged). Roots which have at least a transitive childi kept are kept as
+/// are merged). Roots which have at least a transitive child kept are kept as
 /// well. Other roots (and the size gathered below) are merged in a dummy root.
 ///
 /// Note that `filter` will be called at most once per node.
