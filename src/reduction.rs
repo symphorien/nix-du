@@ -117,6 +117,32 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
     DepInfos::new_from_graph(new_graph)
 }
 
+/// Creates a new graph retaining only reachable nodes
+pub fn keep_reachable(mut di: DepInfos) -> DepInfos {
+    let mut new_graph = DepGraph::new();
+    // ids of nodes put in new_graph
+    let mut new_ids = collections::BTreeMap::new();
+
+    let mut dfs = di.dfs();
+    while let Some(idx) = dfs.next(&di.graph) {
+        let mut new_w = Derivation::dummy();
+        std::mem::swap(&mut di.graph[idx], &mut new_w);
+        let new_node = new_graph.add_node(new_w);
+        new_ids.insert(idx, new_node);
+    }
+
+    // keep edges
+    for edge in di.graph.raw_edges() {
+        if let (Some(&newfrom), Some(&newto)) =
+            (new_ids.get(&edge.source()), new_ids.get(&edge.target()))
+        {
+            new_graph.add_edge(newfrom, newto, ());
+        }
+    }
+
+    DepInfos::new_from_graph(new_graph)
+}
+
 /// Creates a new graph retaining only nodes whose weight return
 /// `true` when passed to `filter`. The nodes which are dropped are
 /// merged into an arbitrary parent (ie. the name is dropped, but edges and size
@@ -208,7 +234,7 @@ mod tests {
     use self::rand::Rng;
     use depgraph::*;
     use reduction::*;
-    use std::collections;
+    use std::collections::{self, BTreeSet, BTreeMap};
     use petgraph::prelude::NodeIndex;
     use petgraph::visit::IntoNodeReferences;
     use petgraph::visit::NodeRef;
@@ -273,7 +299,9 @@ mod tests {
                 }
             }
         }
-        let roots: std::vec::Vec<NodeIndex> = g.externals(petgraph::Direction::Incoming).collect();
+        let roots: std::vec::Vec<NodeIndex> = g.externals(petgraph::Direction::Incoming)
+            .filter(|_| rng.gen())
+            .collect();
         for &idx in &roots {
             g[idx].is_root = true;
         }
@@ -298,6 +326,14 @@ mod tests {
             Err(_) => panic!("Cannot convert {:?} {:?}", drv.path, only_digits),
         }
     }
+    fn revmap(g: &DepGraph) -> BTreeMap<Derivation, NodeIndex> {
+        let mut map = BTreeMap::new();
+        for n in g.node_references() {
+            map.insert(n.weight().clone(), n.id());
+        }
+        map
+    }
+
     #[test]
     /// check that condense and keep preserve some invariants
     fn invariants() {
@@ -305,6 +341,7 @@ mod tests {
             let di = generate_random(250, 10);
             check_invariants(merge_transient_roots, di.clone(), false);
             check_invariants(condense, di.clone(), true);
+            check_invariants(keep_reachable, di.clone(), true);
             check_invariants(|x| keep(x, |_| false), di.clone(), false);
             check_invariants(|x| keep(x, |_| true), di.clone(), true);
         }
@@ -334,6 +371,40 @@ mod tests {
                     assert_eq!(new_parent.path, TRANSIENT_ROOT_NAME);
                     assert_eq!(new_parent.size, 0);
                     assert_eq!(new_parent.is_root, true);
+                }
+            }
+        }
+    }
+    #[test]
+    fn check_keep_reachable() {
+        for _ in 0..40 {
+            let old = generate_random(150, 1);
+            let new = keep_reachable(old.clone());
+            let old_map = revmap(&old.graph);
+            let new_map = revmap(&new.graph);
+            let old_w: BTreeSet<&Derivation> = old_map.keys().collect();
+            let new_w: BTreeSet<&Derivation> = new_map.keys().collect();
+            assert!(
+                new_w.is_subset(&old_w),
+                "new: {:?} \nold: {:?}",
+                new_map,
+                old_map
+            );
+            let mut space = petgraph::algo::DfsSpace::new(&old.graph);
+            for (w, &i) in &old_map {
+                let kept = new_map.contains_key(&w);
+                let reachable = old.roots.iter().any(|&id| {
+                    petgraph::algo::has_path_connecting(&old.graph, id, i, Some(&mut space))
+                });
+                assert_eq!(kept, reachable);
+            }
+            for (w, &i) in &new_map {
+                for (w2, &i2) in &new_map {
+                    let is_edge = new.graph.find_edge(i, i2).is_some();
+                    let was_edge = old.graph
+                        .find_edge(*(&old_map[&w]), *(&old_map[&w2]))
+                        .is_some();
+                    assert_eq!(is_edge, was_edge);
                 }
             }
         }
@@ -437,9 +508,7 @@ mod tests {
             // first let's get rid of {filtered out}
             let fake_roots = new.graph
                 .node_references()
-                .filter_map(|n| if n.weight().path ==
-                    FILTERED_ROOT_NAME
-                {
+                .filter_map(|n| if n.weight().path == FILTERED_ROOT_NAME {
                     Some(n.id())
                 } else {
                     None

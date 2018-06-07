@@ -2,19 +2,23 @@
 
 extern crate memchr;
 extern crate petgraph;
+extern crate fixedbitset;
 
 use std::vec::Vec;
 use std::ffi::CStr;
 use std::os::raw::c_void;
 use std::collections;
+use std::fmt;
 use bindings;
 
 use petgraph::prelude::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
 use petgraph::visit::NodeRef;
 use petgraph::visit::VisitMap;
+use petgraph::visit::Visitable;
+use petgraph::visit::Dfs;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Derivation {
     pub path: Vec<u8>,
     pub size: u64,
@@ -63,6 +67,19 @@ impl Derivation {
 
     pub fn is_transient_root(&self) -> bool {
         self.path.starts_with(b"{memory:") || self.path.starts_with(b"{temp:")
+    }
+}
+
+impl fmt::Debug for Derivation {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let p = String::from_utf8_lossy(&self.path);
+        write!(
+            f,
+            "Derivation {{ path: {}, size: {}{} }}",
+            p,
+            self.size,
+            if self.is_root { ", root" } else { "" }
+        )
     }
 }
 
@@ -133,6 +150,12 @@ impl DepInfos {
         }
         sum
     }
+
+    /// returns a Dfs suitable to visit all reachable nodes.
+    pub fn dfs(&self) -> Dfs<NodeIndex, fixedbitset::FixedBitSet> {
+        Dfs::from_parts(self.roots.clone(), self.graph.visit_map())
+    }
+
     /// returns the set of paths of the roots
     /// intended for testing mainly
     #[cfg(test)]

@@ -21,20 +21,38 @@ use humansize::FileSize;
 /* so that these functions are available in libnix_adepter.a */
 pub use depgraph::{register_node, register_edge};
 
-fn print_stats(msg: &'static str, g: &depgraph::DepInfos) {
-    let dead_size = g.graph.raw_nodes().iter().map(|n| n.weight.size).sum();
+#[derive(Debug, Eq, PartialEq)]
+enum StatOpts {
+    Full,
+    Alive,
+}
+
+fn print_stats(msg: &'static str, g: &depgraph::DepInfos, opts: StatOpts) {
     let alive_size = g.reachable_size();
+    let dead_size = if opts == StatOpts::Alive {
+        0
+    } else {
+        g.graph.raw_nodes().iter().map(|n| n.weight.size).sum()
+    };
     let to_human_readable = |size: u64| {
         size.file_size(humansize::file_size_opts::BINARY)
             .unwrap_or("nan".to_owned())
     };
-    eprintln!(
-        "Store size {}:\t{} alive, {} dead, {} total.",
+    if opts == StatOpts::Alive {
+        eprintln!(
+        "Store size {}:\t{} alive.",
         msg,
         to_human_readable(alive_size),
-        to_human_readable(dead_size - alive_size),
-        to_human_readable(dead_size)
     );
+    } else {
+        eprintln!(
+            "Store size {}:\t{} alive, {} dead, {} total.",
+            msg,
+            to_human_readable(alive_size),
+            to_human_readable(dead_size - alive_size),
+            to_human_readable(dead_size)
+        );
+    }
 }
 
 fn main() {
@@ -148,24 +166,28 @@ provided as part of graphviz. This is strongly recommmended.
     );
 
     noisy!({
-        print_stats("(no optimization)", &g);
+        print_stats("(no optimization)", &g, StatOpts::Full);
     });
 
     if optlevel >= 1 {
+        let statopts;
         if optlevel == 1 {
             // drop dead paths
-            g = reduction::keep(g, |_| true);
+            g = reduction::keep_reachable(g);
+            statopts = StatOpts::Alive;
+        } else {
+            statopts = StatOpts::Full;
         }
 
         msg!(
-            "Looking for optmized paths... (this could take a long time, use the option -O0 to disable)\n"
+            "Looking for optimized paths... (this could take a long time, use the option -O0 to disable)\n"
         );
         opt::refine_optimized_store(&mut g).unwrap_or_else(|e| {
             eprintln!("Could not unoptimize {:?}", e)
         });
 
         noisy!({
-            print_stats("(with optimization)", &g);
+            print_stats("(with optimization)", &g, statopts);
         });
     }
 
