@@ -9,6 +9,7 @@ fn main() {
     cc::Build::new()
         .cpp(true) // Switch to C++ library compilation.
         .flag("-std=c++14")
+        .flag("-O2")
         .file("wrapper.cpp")
         .compile("libnix_adapter.a");
 
