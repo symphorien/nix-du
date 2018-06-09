@@ -154,13 +154,21 @@ pub fn parse_out(out: String) -> Output {
     res
 }
 
-fn assert_matches(got: &Output, expected: &Output) {
+fn assert_matches_one_of(got: &Output, expected: &[&Output]) {
     assert!(
-    petgraph::algo::is_isomorphic_matching(got, expected, |a, b| a == b, |_, _| true),
+        expected.iter().any(|e|
+    petgraph::algo::is_isomorphic_matching(got, e, |a, b| a == b, |_, _| true)),
     "non-isomorphic graphs.\ngot:\n{:?}\nexpected:\n{:?}",
     petgraph::dot::Dot::new(got),
-    petgraph::dot::Dot::new(expected),
+    {
+        let x: Vec<_> = expected.iter().map(|e| format!("{:?}", petgraph::dot::Dot::new(e))).collect();
+        &x.join("\nOR\n")
+    }
     );
+}
+
+fn assert_matches(got: &Output, expected: &Output) {
+    assert_matches_one_of(got, &[expected])
 }
 
 pub fn run_and_parse(args: &'static [&'static str], t: &TestDir) -> Output {
@@ -312,8 +320,8 @@ dec_test!(
 dec_test!(
     optimise = |t| {
         dec_spec!(optimised = (
-              coucou, foo, bar;
-              coucou -> foo)); // foo will be different from the other
+              coucou, foo, bar, blih;
+              coucou -> foo)); // coucou != foo == bar == blih
         dec_spec!(not_optimised = (
               baz, qux, frob;
               baz -> qux, qux -> frob));
@@ -321,14 +329,23 @@ dec_test!(
         prepare_store(&optimised, &t);
         call("nix-store", &t).arg("--optimise").expect_success();
         prepare_store(&not_optimised, &t);
+        std::fs::remove_file(t.path("roots/blih")).expect("cannot remove roots/blih");
 
-        let real = run_and_parse(&["-O1"], &t);
+        let real1 = run_and_parse(&["-O1"], &t);
 
-        dec_out!(expected = (
-             coucou 1, bar 0, baz 3,
-                shared_bar 1 // fragile
-            ; coucou -> shared_bar, bar -> shared_bar));
-        assert_matches(&real, &expected);
+        dec_out!(expected_bar = (
+             coucou 1, bar 0, baz 3, shared_bar 1 ;
+             coucou -> shared_bar, bar -> shared_bar));
+        dec_out!(expected_foo = (
+             coucou 1, bar 0, baz 3, shared_foo 1 ;
+             coucou -> shared_bar, bar -> shared_bar));
+        dec_out!(expected_blih = (
+             coucou 1, bar 0, baz 3, shared_blih 1 ;
+             coucou -> shared_bar, bar -> shared_bar));
+        assert_matches_one_of(&real1, &[&expected_foo, &expected_bar]);
+
+        let real2 = run_and_parse(&["-O2"], &t);
+        assert_matches_one_of(&real2, &[&expected_foo, &expected_bar, &expected_blih]);
 
         let real = run_and_parse(&["-O0"], &t);
 
