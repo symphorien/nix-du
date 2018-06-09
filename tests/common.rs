@@ -111,24 +111,12 @@ pub fn prepare_store(spec: &Specification, t: &TestDir) {
 fn check_syntax<T: AsRef<[u8]>>(out: T, t: &TestDir) {
     let temp = t.path("out.dot");
     t.create_file(&temp, out);
-    Command::new("dot").arg("-o/dev/null").arg(temp).expect_success();
+    Command::new("dot")
+        .arg("-o/dev/null")
+        .arg(temp)
+        .expect_success();
 }
 
-pub fn run_with_spec(
-    test_name: &'static str,
-    spec: &Specification,
-    args: &'static [&'static str],
-) -> String {
-    let t = cli_test_dir::TestDir::new("nix-du", test_name);
-
-    prepare_store(&spec, &t);
-
-    let stdout = call_self(&t).args(args).expect_success().stdout;
-    let out = String::from_utf8_lossy(&stdout);
-    println!("Got output:\n{}", &out);
-    check_syntax(&stdout, &t);
-    out.into_owned()
-}
 
 pub fn parse_out(out: String) -> Output {
     let mut res = Output::new();
@@ -169,11 +157,20 @@ fn assert_matches(got: &Output, expected: &Output) {
     );
 }
 
+pub fn run_and_parse(args: &'static [&'static str], t: &TestDir) -> Output {
+
+    let stdout = call_self(&t).args(args).expect_success().stdout;
+    let out = String::from_utf8_lossy(&stdout);
+    println!("Got output:\n{}", &out);
+    check_syntax(&stdout, &t);
+    parse_out(out.into_owned())
+}
+
 /// declare a Specification variable under the identifier (first argument).
 /// It contains nodes named after the first list, and edges as specified in
 /// the second list.
 macro_rules! dec_spec {
-    ($g:ident; $($id:ident),+ ; $($from:ident -> $to:ident),*) => {
+    ($g:ident = ($($id:ident),+ ; $($from:ident -> $to:ident),*)) => {
         let mut $g = Specification::new();
         $(
             #[allow(unused_variables)]
@@ -187,7 +184,7 @@ macro_rules! dec_spec {
 
 /// Same as `dec_spec!` but for `Output`.
 macro_rules! dec_out {
-    ($g:ident; $($id:ident $count:expr),+ ; $($from:ident -> $to:ident),*) => {
+    ($g:ident = ($($id:ident $count:expr),+ ; $($from:ident -> $to:ident),*)) => {
         let mut $g = Output::new();
         $(
             #[allow(unused_variables)]
@@ -199,126 +196,139 @@ macro_rules! dec_out {
     };
 }
 
+macro_rules! dec_test {
+    ($name:ident = | $tname:ident | $inner:block) => {
+        #[test]
+        fn $name() {
+            let $tname = cli_test_dir::TestDir::new("nix-du", stringify!($name));
+
+            $inner
+        }
+    }
+}
 /****************************
  * Here come the tests.
  * Beware:
  * - node names must only contain [a-z]*
- * - in the output spec, remember that the only guarantee on the label of 
+ * - in the output spec, remember that the only guarantee on the label of
  * an equivalence class is "the label of the first node of the class in BFS
  * order". Design your testcases wisely.
  * - same thing with `keep`: present edges are not completely specified.
  * - all nodes without incoming edges will be roots.
  ******************************/
 
-#[test]
-fn k2_1() {
-    dec_spec!(spec; coucou, foo, bar; coucou -> foo, bar -> foo);
+dec_test!(
+    k2_1 = |t| {
+        dec_spec!(spec = (coucou, foo, bar; coucou -> foo, bar -> foo));
+        prepare_store(&spec, &t);
 
-    dec_out!(expected; coucou 1, bar 1, foo 1, temporary 0; coucou -> foo, bar -> foo);
-    let real = parse_out(run_with_spec("k2_1", &spec, &[]));
-    assert_matches(&real, &expected);
-}
+        dec_out!(expected = (coucou 1, bar 1, foo 1, temporary 0; coucou -> foo, bar -> foo));
+        let real = run_and_parse(&[], &t);
+        assert_matches(&real, &expected);
+    }
+);
 
-#[test]
-fn simple() {
-    dec_spec!(spec;
+dec_test!(
+    simple = |t| {
+        dec_spec!(spec = (
               coucou, foo, bar, baz, mux;
-              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
+              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
+        prepare_store(&spec, &t);
 
-    dec_out!(expected; coucou 2, bar 1, foo 2, temporary 0; coucou -> foo, bar -> foo);
-    let real = parse_out(run_with_spec("simple", &spec, &[]));
-    assert_matches(&real, &expected);
-}
+        dec_out!(expected = (
+                coucou 2, bar 1, foo 2, temporary 0;
+                coucou -> foo, bar -> foo));
+        let real = run_and_parse(&[], &t);
+        assert_matches(&real, &expected);
+    }
+);
 
-#[test]
-fn filter_size_root_kept() {
-    dec_spec!(spec;
+dec_test!(
+    filter_size_root_kept = |t| {
+        dec_spec!(spec = (
               coucou, foo, bar, baz, mux;
-              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
+              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
+        prepare_store(&spec, &t);
 
-    dec_out!(expected; coucou 2, bar 1, foo 2; coucou -> foo, bar -> foo);
-    let real = parse_out(run_with_spec("filter_size_root_kept", &spec, &["-s=150KB"]));
-    assert_matches(&real, &expected);
-}
+        dec_out!(expected = (
+                coucou 2, bar 1, foo 2;
+                coucou -> foo, bar -> foo));
+        let real = run_and_parse(&["-s=150KB"], &t);
+        assert_matches(&real, &expected);
+    }
+);
 
-#[test]
-fn filter_size_root_not_kept() {
-    dec_spec!(spec;
+dec_test!(
+    filter_size_root_not_kept = |t| {
+        dec_spec!(spec = (
               coucou, foo, bar, baz, mux, frob;
-              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
+              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
+        prepare_store(&spec, &t);
 
-    dec_out!(expected; coucou 2, bar 1, foo 2, filtered_out 1; coucou -> foo, bar -> foo);
-    let real = parse_out(run_with_spec(
-        "filter_size_root_not_kept",
-        &spec,
-        &["-s=150KB"],
-    ));
-    assert_matches(&real, &expected);
-}
+        dec_out!(expected = (
+                coucou 2, bar 1, foo 2, filtered_out 1;
+                coucou -> foo, bar -> foo));
+        let real = run_and_parse(&["-s=150KB"], &t);
+        assert_matches(&real, &expected);
+    }
+);
 
-#[test]
-fn filter_number_root_kept() {
-    dec_spec!(spec;
+dec_test!(
+    filter_number_root_kept = |t| {
+        dec_spec!(spec = (
               coucou, foo, bar, baz, mux;
-              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
+              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
+        prepare_store(&spec, &t);
 
-    dec_out!(expected; coucou 2, bar 1, foo 2; coucou -> foo, bar -> foo);
-    let real = parse_out(run_with_spec("filter_number_root_kept", &spec, &["-n2"]));
-    assert_matches(&real, &expected);
-}
+        dec_out!(expected = (
+                coucou 2, bar 1, foo 2;
+                coucou -> foo, bar -> foo));
+        let real = run_and_parse(&["-n2"], &t);
+        assert_matches(&real, &expected);
+    }
+);
 
-#[test]
-fn filter_number_root_not_kept() {
-    dec_spec!(spec;
+dec_test!(
+    filter_number_root_not_kept = |t| {
+        dec_spec!(spec = (
               coucou, foo, bar, baz, mux, frob;
-              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
+              coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
+        prepare_store(&spec, &t);
 
-    dec_out!(expected; coucou 2, bar 1, foo 2, filtered_out 1; coucou -> foo, bar -> foo);
-    let real = parse_out(run_with_spec(
-        "filter_size_number_not_kept",
-        &spec,
-        &["-n2"],
-    ));
-    assert_matches(&real, &expected);
-}
+        dec_out!(expected = (
+            coucou 2, bar 1, foo 2, filtered_out 1;
+            coucou -> foo, bar -> foo));
+        let real = run_and_parse(&["-n2"], &t);
+        assert_matches(&real, &expected);
+    }
+);
 
-#[test]
-fn optimise() {
-    dec_spec!(optimised;
+dec_test!(
+    optimise = |t| {
+        dec_spec!(optimised = (
               coucou, foo, bar;
-              coucou -> foo); // foo will be different from the other
-    dec_spec!(not_optimised;
+              coucou -> foo)); // foo will be different from the other
+        dec_spec!(not_optimised = (
               baz, qux, frob;
-              baz -> qux, qux -> frob);
+              baz -> qux, qux -> frob));
 
-    let t = cli_test_dir::TestDir::new("nix-du", "opt");
+        prepare_store(&optimised, &t);
+        call("nix-store", &t).arg("--optimise").expect_success();
+        prepare_store(&not_optimised, &t);
 
-    prepare_store(&optimised, &t);
+        let real = run_and_parse(&["-O1"], &t);
 
-    call("nix-store", &t).arg("--optimise").expect_success();
-
-    prepare_store(&not_optimised, &t);
-
-    let stdout = call_self(&t).arg("-O1").expect_success().stdout;
-    let out = String::from_utf8_lossy(&stdout);
-    println!("Got output:\n{}", &out);
-    check_syntax(&stdout, &t);
-    let real = parse_out(out.into_owned());
-
-    dec_out!(expected;
+        dec_out!(expected = (
              coucou 1, bar 0, baz 3, temporary 0,
                 shared_bar 1 // fragile
-            ; coucou -> shared_bar, bar -> shared_bar);
-    assert_matches(&real, &expected);
+            ; coucou -> shared_bar, bar -> shared_bar));
+        assert_matches(&real, &expected);
 
-    dec_out!(expected_nonopt;
+        let real = run_and_parse(&["-O0"], &t);
+
+        dec_out!(expected_nonopt = (
              coucou 2, bar 1, baz 3, temporary 0
-            ; );
-
-    let stdout = call_self(&t).arg("-O0").expect_success().stdout;
-    let out = String::from_utf8_lossy(&stdout);
-    println!("Got output:\n{}", &out);
-    check_syntax(&stdout, &t);
-    let real = parse_out(out.into_owned());
-    assert_matches(&real, &expected_nonopt);
-}
+            ; ));
+        assert_matches(&real, &expected_nonopt);
+    }
+);
