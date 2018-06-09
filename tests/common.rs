@@ -114,7 +114,11 @@ fn check_syntax<T: AsRef<[u8]>>(out: T, t: &TestDir) {
     Command::new("dot").arg("-o/dev/null").arg(temp).expect_success();
 }
 
-pub fn run_with_spec(test_name: &'static str, spec: &Specification, args: &'static [&'static str]) -> String {
+pub fn run_with_spec(
+    test_name: &'static str,
+    spec: &Specification,
+    args: &'static [&'static str],
+) -> String {
     let t = cli_test_dir::TestDir::new("nix-du", test_name);
 
     prepare_store(&spec, &t);
@@ -129,13 +133,19 @@ pub fn run_with_spec(test_name: &'static str, spec: &Specification, args: &'stat
 pub fn parse_out(out: String) -> Output {
     let mut res = Output::new();
     let mut id_to_node = std::collections::BTreeMap::new();
-    let node_re = regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([ {}a-z]+) \(([^)]+)\)"#).unwrap();
+    let node_re = regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([ {}:a-z]+) \(([^)]+)\)"#)
+        .unwrap();
     let edge_re = regex::Regex::new(r"N(\d+) -> N(\d+)").unwrap();
     for node in node_re.captures_iter(&out) {
         println!("node: {:?}", node);
         assert!(node.len() == 4);
         let id: u32 = node[1].parse().unwrap();
-        let name = node[2].to_owned().replace(" ", "_").replace("{", "").replace("}", "");
+        let name = node[2]
+            .to_owned()
+            .replace(" ", "_")
+            .replace(":", "_")
+            .replace("{", "")
+            .replace("}", "");
         let size: Size = node[3].parse().unwrap(); // should be 100KB*num of deps
         let count = ((size.into_bytes() as f64) / 100_000f64) as u16;
         id_to_node.insert(id, res.add_node(Class { name, count }));
@@ -163,7 +173,7 @@ fn assert_matches(got: &Output, expected: &Output) {
 /// It contains nodes named after the first list, and edges as specified in
 /// the second list.
 macro_rules! dec_spec {
-    ($g:ident; $($id:ident),+ ; $($from:ident -> $to:ident),+) => {
+    ($g:ident; $($id:ident),+ ; $($from:ident -> $to:ident),*) => {
         let mut $g = Specification::new();
         $(
             #[allow(unused_variables)]
@@ -171,13 +181,13 @@ macro_rules! dec_spec {
         )+
         $(
             $g.add_edge($from, $to, ());
-        )+
+        )*
     };
 }
 
 /// Same as `dec_spec!` but for `Output`.
 macro_rules! dec_out {
-    ($g:ident; $($id:ident $count:expr),+ ; $($from:ident -> $to:ident),+) => {
+    ($g:ident; $($id:ident $count:expr),+ ; $($from:ident -> $to:ident),*) => {
         let mut $g = Output::new();
         $(
             #[allow(unused_variables)]
@@ -185,7 +195,7 @@ macro_rules! dec_out {
         )+
         $(
             $g.add_edge($from, $to, ());
-        )+
+        )*
     };
 }
 
@@ -238,7 +248,11 @@ fn filter_size_root_not_kept() {
               coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
 
     dec_out!(expected; coucou 2, bar 1, foo 2, filtered_out 1; coucou -> foo, bar -> foo);
-    let real = parse_out(run_with_spec("filter_size_root_not_kept", &spec, &["-s=150KB"]));
+    let real = parse_out(run_with_spec(
+        "filter_size_root_not_kept",
+        &spec,
+        &["-s=150KB"],
+    ));
     assert_matches(&real, &expected);
 }
 
@@ -260,6 +274,51 @@ fn filter_number_root_not_kept() {
               coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz);
 
     dec_out!(expected; coucou 2, bar 1, foo 2, filtered_out 1; coucou -> foo, bar -> foo);
-    let real = parse_out(run_with_spec("filter_size_number_not_kept", &spec, &["-n2"]));
+    let real = parse_out(run_with_spec(
+        "filter_size_number_not_kept",
+        &spec,
+        &["-n2"],
+    ));
     assert_matches(&real, &expected);
+}
+
+#[test]
+fn optimise() {
+    dec_spec!(optimised;
+              coucou, foo, bar;
+              coucou -> foo); // foo will be different from the other
+    dec_spec!(not_optimised;
+              baz, qux, frob;
+              baz -> qux, qux -> frob);
+
+    let t = cli_test_dir::TestDir::new("nix-du", "opt");
+
+    prepare_store(&optimised, &t);
+
+    call("nix-store", &t).arg("--optimise").expect_success();
+
+    prepare_store(&not_optimised, &t);
+
+    let stdout = call_self(&t).arg("-O1").expect_success().stdout;
+    let out = String::from_utf8_lossy(&stdout);
+    println!("Got output:\n{}", &out);
+    check_syntax(&stdout, &t);
+    let real = parse_out(out.into_owned());
+
+    dec_out!(expected;
+             coucou 1, bar 0, baz 3, temporary 0,
+                shared_bar 1 // fragile
+            ; coucou -> shared_bar, bar -> shared_bar);
+    assert_matches(&real, &expected);
+
+    dec_out!(expected_nonopt;
+             coucou 2, bar 1, baz 3, temporary 0
+            ; );
+
+    let stdout = call_self(&t).arg("-O0").expect_success().stdout;
+    let out = String::from_utf8_lossy(&stdout);
+    println!("Got output:\n{}", &out);
+    check_syntax(&stdout, &t);
+    let real = parse_out(out.into_owned());
+    assert_matches(&real, &expected_nonopt);
 }
