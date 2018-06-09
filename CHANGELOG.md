@@ -1,3 +1,8 @@
+master:
+
+* add -O option to take store optimisation into account
+* do not add a root for transient roots if there is not transient root to begin with.
+
 v0.1.2:
 
 * temporary roots are now aggregated with memory roots.
