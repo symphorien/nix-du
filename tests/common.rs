@@ -104,6 +104,12 @@ pub fn prepare_store(spec: &Specification, t: &TestDir) {
             .expect_success()
             .stdout;
         println!("{}", String::from_utf8_lossy(&x));
+        let x = call("nix-store", t)
+            .arg("--gc")
+            .arg("--print-roots")
+            .expect_success()
+            .stdout;
+        println!("{}", String::from_utf8_lossy(&x));
 
     }
 }
@@ -222,7 +228,7 @@ dec_test!(
         dec_spec!(spec = (coucou, foo, bar; coucou -> foo, bar -> foo));
         prepare_store(&spec, &t);
 
-        dec_out!(expected = (coucou 1, bar 1, foo 1, temporary 0; coucou -> foo, bar -> foo));
+        dec_out!(expected = (coucou 1, bar 1, foo 1; coucou -> foo, bar -> foo));
         let real = run_and_parse(&[], &t);
         assert_matches(&real, &expected);
     }
@@ -236,7 +242,7 @@ dec_test!(
         prepare_store(&spec, &t);
 
         dec_out!(expected = (
-                coucou 2, bar 1, foo 2, temporary 0;
+                coucou 2, bar 1, foo 2;
                 coucou -> foo, bar -> foo));
         let real = run_and_parse(&[], &t);
         assert_matches(&real, &expected);
@@ -319,16 +325,14 @@ dec_test!(
         let real = run_and_parse(&["-O1"], &t);
 
         dec_out!(expected = (
-             coucou 1, bar 0, baz 3, temporary 0,
+             coucou 1, bar 0, baz 3,
                 shared_bar 1 // fragile
             ; coucou -> shared_bar, bar -> shared_bar));
         assert_matches(&real, &expected);
 
         let real = run_and_parse(&["-O0"], &t);
 
-        dec_out!(expected_nonopt = (
-             coucou 2, bar 1, baz 3, temporary 0
-            ; ));
+        dec_out!(expected_nonopt = (coucou 2, bar 1, baz 3; ));
         assert_matches(&real, &expected_nonopt);
     }
 );

@@ -14,24 +14,33 @@ use depgraph::*;
 static TRANSIENT_ROOT_NAME: &'static [u8] = b"{temporary}";
 static FILTERED_ROOT_NAME: &'static [u8] = b"{filtered out}";
 
-/// Merges all the in memory roots in one root.
+/// Merges all the in memory roots in one root
+/// noop is no in memory root is present
 pub fn merge_transient_roots(di: DepInfos) -> DepInfos {
     let DepInfos {
         mut roots,
         mut graph,
     } = di;
-    let fake_root = Derivation {
-        path: TRANSIENT_ROOT_NAME.iter().cloned().collect(),
-        size: 0,
-        is_root: true,
-    };
-    let fake_root_idx = graph.add_node(fake_root);
+    let mut fake_root_idx = None;
 
     roots = roots
         .iter()
         .cloned()
         .filter(|&idx| if graph[idx].is_transient_root() {
-            graph.add_edge(fake_root_idx, idx, ());
+            let ridx = match fake_root_idx {
+                Some(x) => x,
+                None => {
+                    let fake_root = Derivation {
+                        path: TRANSIENT_ROOT_NAME.iter().cloned().collect(),
+                        size: 0,
+                        is_root: true,
+                    };
+                    let new = graph.add_node(fake_root);
+                    fake_root_idx = Some(new);
+                    new
+                }
+            };
+            graph.add_edge(ridx, idx, ());
             graph[idx].is_root = false;
             false
         } else {
@@ -39,7 +48,9 @@ pub fn merge_transient_roots(di: DepInfos) -> DepInfos {
         })
         .collect();
 
-    roots.push(fake_root_idx);
+    if let Some(ridx) = fake_root_idx {
+        roots.push(ridx);
+    }
 
     DepInfos { roots, graph }
 }
@@ -273,7 +284,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut g: DepGraph = petgraph::graph::Graph::new();
         for i in 0..size {
-            let name = if rng.gen() {
+            let name = if i>4 || rng.gen() {
                 i.to_string()
             } else {
                 let typ = if rng.gen() { "memory" } else { "temp" };
@@ -351,6 +362,13 @@ mod tests {
         for _ in 0..40 {
             let old = generate_random(250, 10);
             let new = merge_transient_roots(old.clone());
+            let has_transient_roots = old.roots.iter().any(|&idx| old.graph[idx].is_transient_root());
+            if !has_transient_roots {
+                let fingerprint = |di: &DepInfos| (di.roots.clone(), di.graph.node_references().map(|n| (n.id(), n.weight().clone())).collect::<Vec<_>>(), di.graph.edge_references().map(|e| (e.source(), e.target())).collect::<Vec<_>>());
+                assert_eq!(fingerprint(&old), fingerprint(&new));
+                return;
+            }
+            assert_eq!(old.graph.node_count() +1, new.graph.node_count());
             for edge in new.graph.edge_references() {
                 let old_child = &old.graph[edge.target()];
                 let new_child = &new.graph[edge.target()];
