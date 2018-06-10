@@ -92,7 +92,7 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
                             });
                             di.graph.add_edge(n, new_node, ());
                             di.graph[n].size -= metadata.len();
-                            *v = Owner::Several(n);
+                            *v = Owner::Several(new_node);
                             new_node
                         }
                         Owner::Several(n) => n,
