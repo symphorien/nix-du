@@ -158,7 +158,7 @@ fn assert_matches_one_of(got: &Output, expected: &[&Output]) {
     assert!(
         expected.iter().any(|e|
     petgraph::algo::is_isomorphic_matching(got, e, |a, b| a == b, |_, _| true)),
-    "non-isomorphic graphs.\ngot:\n{:?}\nexpected:\n{:?}",
+    "non-isomorphic graphs.\ngot:\n{:?}\nexpected:\n{}",
     petgraph::dot::Dot::new(got),
     {
         let x: Vec<_> = expected.iter().map(|e| format!("{:?}", petgraph::dot::Dot::new(e))).collect();
