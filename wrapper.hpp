@@ -15,6 +15,7 @@
 
 #include <iostream>
 #include <unordered_map>
+#include <nix/util.hh> // restoreSignals
 #include <nix/shared.hh> // initNix
 #include <nix/local-store.hh>
 #include <nix/remote-store.hh>
@@ -33,7 +34,7 @@ extern "C" {
   extern void register_edge(void *graph, unsigned from, unsigned to);
   int populateGraph(void *graph) {
     using namespace nix;
-    return handleExceptions("nix-du", [graph]() {
+    int retcode = handleExceptions("nix-du", [graph]() {
       initNix();
       auto store = openStore();
 
@@ -83,6 +84,8 @@ extern "C" {
         }
       }
     });
+    restoreSignals();
+    return retcode;
   }
 }
 
