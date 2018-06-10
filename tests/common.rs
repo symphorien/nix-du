@@ -172,11 +172,11 @@ fn assert_matches(got: &Output, expected: &Output) {
 }
 
 pub fn run_and_parse(args: &'static [&'static str], t: &TestDir) -> Output {
-
-    let stdout = call_self(&t).args(args).expect_success().stdout;
-    let out = String::from_utf8_lossy(&stdout);
-    println!("Got output:\n{}", &out);
-    check_syntax(&stdout, &t);
+    let process = call_self(&t).args(args).expect_success();
+    let out = String::from_utf8_lossy(&process.stdout);
+    let err = String::from_utf8_lossy(&process.stderr);
+    println!("Got output:\n{}\n{}", &err, &out);
+    check_syntax(&process.stdout, &t);
     parse_out(out.into_owned())
 }
 
