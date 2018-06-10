@@ -281,6 +281,30 @@ dec_test!(
 );
 
 dec_test!(
+    filter_size_non_root = |t| {
+        dec_spec!(spec = (
+                a, b, c, d, e, f;
+                a -> d, b -> d, c -> e, d -> e, e -> f));
+        prepare_store(&spec, &t);
+
+        let real = run_and_parse(&["-s=150KB"], &t);
+        dec_out!(expected11 = (
+                a 2, b 1, c 1, e 2;
+                a -> e, b -> e, c -> e));
+        dec_out!(expected12 = (
+                a 2, b 1, c 1, e 2;
+                a -> e, b -> e, c -> e, b -> a));
+        dec_out!(expected21 = (
+                a 1, b 2, c 1, e 2;
+                a -> e, b -> e, c -> e));
+        dec_out!(expected22 = (
+                a 1, b 2, c 1, e 2;
+                a -> e, b -> e, c -> e, a -> b));
+        assert_matches_one_of(&real, &[&expected11, &expected12, &expected21, &expected22]);
+    }
+);
+
+dec_test!(
     filter_number_root_kept = |t| {
         dec_spec!(spec = (
               coucou, foo, bar, baz, mux;
