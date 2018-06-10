@@ -104,13 +104,6 @@ pub fn prepare_store(spec: &Specification, t: &TestDir) {
             .expect_success()
             .stdout;
         println!("{}", String::from_utf8_lossy(&x));
-        let x = call("nix-store", t)
-            .arg("--gc")
-            .arg("--print-roots")
-            .expect_success()
-            .stdout;
-        println!("{}", String::from_utf8_lossy(&x));
-
     }
 }
 
