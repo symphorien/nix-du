@@ -16,4 +16,5 @@ fn main() {
     /* must be passed as an argument to the linker *after* -lnix_adapter */
     println!("cargo:rustc-link-lib=nixstore");
     println!("cargo:rustc-link-lib=nixmain");
+    println!("cargo:rustc-link-lib=nixutil");
 }
