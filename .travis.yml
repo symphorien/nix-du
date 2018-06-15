@@ -2,4 +2,12 @@ language: nix
 os:
   - linux
   - osx
-script: nix-build test.nix
+before_script:
+  - nix-instantiate test.nix --add-root /tmp/drv --indirect
+  - mv /tmp/drv /tmp/drv-1
+env:
+  - TARGET=1
+  - TARGET=2
+  - TARGET=3
+  - TARGET=4
+script: if test -e /tmp/drv-$TARGET ; then nix-build -j1 --cores 2 $(readlink /tmp/drv-$TARGET); fi
