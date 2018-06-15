@@ -6,9 +6,10 @@ use msg::*;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::io::Result;
-use std::os::unix::ffi::OsStringExt;
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::iter::once;
+use std::os::unix::fs::MetadataExt;
 use self::walkdir::{WalkDir, DirEntryExt};
 use petgraph::prelude::NodeIndex;
 
@@ -45,12 +46,15 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
         {
             // scope where we borrow the graph
             let weight = &di.graph[idx];
-            // roots are not necessary readable, and anyway thery are symlinks
-            // we also filter out dummy nodes like {memory}
-            if weight.is_root || weight.path.get(0) != Some(&b'/') {
+            // roots are not necessary readable, and anyway they are symlinks
+            if weight.is_root {
                 continue;
             }
-            path = OsString::from_vec(weight.path.clone());
+            // we also filter out dummy nodes like {memory}
+            path = match weight.path_as_os_str() {
+                None => continue,
+                Some(x) => x.to_os_string(),
+            };
         }
 
         // if path is a symlink to a directory, we enumerate files not in this
@@ -104,4 +108,47 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
         }
     }
     Ok(())
+}
+
+/// Determine whether at least one path has been optimised in the store.
+/// This function is designed to be cheap, and to fail when it cannot be cheap
+/// (it will return `Ok(None)` then).
+pub fn store_is_optimised(di: &DepInfos) -> Result<Option<bool>> {
+    // there is no way in the nix api to get the linksDir field of a RemoteStore
+    // Using this api would only work for LocalStore, which is unfortunate.
+    // So we just infer the linksDir.
+    let root = match di.roots.get(0) {
+        None => return Ok(None),
+        Some(&x) => x,
+    };
+    // roots are not in the store, let's get a real drv
+    let drv = di.graph.neighbors(root).next().expect("root without child");
+    let mut p = match di.graph[drv].path_as_os_str() {
+        None => return Ok(None),
+        Some(x) => PathBuf::from(x.to_os_string()),
+    };
+    // compute the location of .links
+    if !p.pop() {
+        return Ok(None);
+    }
+    p.push(".links");
+
+    // iterate on the first ten files in .links, and then yield None and give up
+    for entry in p.read_dir()?.map(Some).take(10).chain(once(None)) {
+        let entry = match entry {
+            Some(entry) => entry?,
+            // .links contains more than ten files, give up
+            None => return Ok(None),
+        };
+        let ty = entry.file_type()?;
+        if !ty.is_file() {
+            eprintln!("Strange, {} is not a file", entry.path().display());
+            return Ok(None);
+        }
+        if entry.metadata()?.nlink() > 1 {
+            // this file is optimised !
+            return Ok(Some(true));
+        }
+    }
+    return Ok(Some(false));
 }

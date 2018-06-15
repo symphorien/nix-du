@@ -5,7 +5,8 @@ extern crate petgraph;
 extern crate fixedbitset;
 
 use std::vec::Vec;
-use std::ffi::CStr;
+use std::ffi::{CStr, OsStr};
+use std::os::unix::ffi::OsStrExt;
 use std::os::raw::c_void;
 use std::collections;
 use std::fmt;
@@ -65,8 +66,18 @@ impl Derivation {
         }
     }
 
+    /// returns whether this node is a transient or memory root
     pub fn is_transient_root(&self) -> bool {
         self.path.starts_with(b"{memory:") || self.path.starts_with(b"{temp:")
+    }
+
+    /// returns the path as an `OsStr` if it begins with '/'
+    pub fn path_as_os_str(&self) -> Option<&OsStr> {
+        if self.path.get(0) != Some(&b'/') {
+            None
+        } else {
+            Some(OsStr::from_bytes(&self.path))
+        }
     }
 }
 

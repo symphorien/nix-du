@@ -366,6 +366,46 @@ dec_test!(
 );
 
 dec_test!(
+    autodetect_un_optimised = |t| {
+        dec_spec!(spec = (
+              coucou, foo, bar;
+              coucou -> foo)); // coucou != foo == bar
+
+        prepare_store(&spec, &t);
+
+        let real0 = run_and_parse(&["-O0"], &t);
+        let realauto = run_and_parse(&[], &t);
+
+        dec_out!(expected = (coucou 2, bar 1;));
+        assert_matches(&real0, &expected);
+        assert_matches(&realauto, &expected);
+    }
+);
+
+dec_test!(
+    autodetect_optimised = |t| {
+        dec_spec!(spec = (
+              coucou, foo, bar;
+              coucou -> foo)); // coucou != foo == bar
+
+        prepare_store(&spec, &t);
+        call("nix-store", &t).arg("--optimise").expect_success();
+
+        let real1 = run_and_parse(&["-O1"], &t);
+        let realauto = run_and_parse(&[], &t);
+
+        dec_out!(expected_bar = (
+             coucou 1, bar 0, shared_bar 1 ;
+             coucou -> shared_bar, bar -> shared_bar));
+        dec_out!(expected_foo = (
+             coucou 1, bar 0, shared_foo 1 ;
+             coucou -> shared_foo, bar -> shared_foo));
+        assert_matches_one_of(&real1, &[&expected_foo, &expected_bar]);
+        assert_matches_one_of(&realauto, &[&expected_foo, &expected_bar]);
+    }
+);
+
+dec_test!(
     optimise = |t| {
         dec_spec!(optimised = (
               coucou, foo, bar, blih;
@@ -386,10 +426,10 @@ dec_test!(
              coucou -> shared_bar, bar -> shared_bar));
         dec_out!(expected_foo = (
              coucou 1, bar 0, baz 3, shared_foo 1 ;
-             coucou -> shared_bar, bar -> shared_bar));
+             coucou -> shared_foo, bar -> shared_foo));
         dec_out!(expected_blih = (
              coucou 1, bar 0, baz 3, shared_blih 1 ;
-             coucou -> shared_bar, bar -> shared_bar));
+             coucou -> shared_blih, bar -> shared_blih));
         assert_matches_one_of(&real1, &[&expected_foo, &expected_bar]);
 
         let real2 = run_and_parse(&["-O2"], &t);

@@ -27,6 +27,8 @@ enum StatOpts {
     Alive,
 }
 
+type OptLevel = Option<StatOpts>;
+
 fn print_stats(msg: &'static str, g: &depgraph::DepInfos, opts: StatOpts) {
     let alive_size = g.reachable_size();
     let dead_size = if opts == StatOpts::Alive {
@@ -108,7 +110,7 @@ provided as part of graphviz. This is strongly recommmended.
                 .short("O")
                 .long("opt-level")
                 .value_name("N")
-                .help("whether to take store optimisation into account: 0: no, 1: live paths, 2:all paths (default 1)")
+                .help("whether to take store optimisation into account: 0: no, 1: live paths, 2:all paths (default autodetect)")
                 .takes_value(true),
         )
         .arg(
@@ -146,12 +148,14 @@ provided as part of graphviz. This is strongly recommmended.
         }
         None => 0,
     };
-    let optlevel = match matches.value_of("optlevel").unwrap_or("1") {
-        "0" => 0,
-        "1" => 1,
-        "2" => 2,
+    let optlevel: Option<OptLevel> = match matches.value_of("optlevel").unwrap_or("auto") {
+        "0" => Some(None),
+        "1" => Some(Some(StatOpts::Alive)),
+        "2" => Some(Some(StatOpts::Full)),
+        "auto" => None,
         _ => clap::Error::value_validation_auto("Only -O0, -O1, -O2 exist.".to_owned()).exit(),
     };
+
     set_quiet(matches.is_present("quiet"));
 
     msg!("Reading dependency graph from store... ");
@@ -169,14 +173,21 @@ provided as part of graphviz. This is strongly recommmended.
         print_stats("(no optimization)", &g, StatOpts::Full);
     });
 
-    if optlevel >= 1 {
-        let statopts;
-        if optlevel == 1 {
+    let default_optlevel = Some(StatOpts::Alive);
+    let optlevel = optlevel.unwrap_or_else(|| match opt::store_is_optimised(&g) {
+        Err(e) => {
+            eprintln!("Could not auto detect store optimisation: {}", e);
+            default_optlevel
+        }
+        Ok(None) => default_optlevel,
+        Ok(Some(true)) => Some(StatOpts::Alive),
+        Ok(Some(false)) => None,
+    });
+
+    if let Some(statopts) = optlevel {
+        if statopts == StatOpts::Alive {
             // drop dead paths
             g = reduction::keep_reachable(g);
-            statopts = StatOpts::Alive;
-        } else {
-            statopts = StatOpts::Full;
         }
 
         msg!(
