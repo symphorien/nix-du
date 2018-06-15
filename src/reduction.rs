@@ -284,7 +284,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut g: DepGraph = petgraph::graph::Graph::new();
         for i in 0..size {
-            let name = if i>4 || rng.gen() {
+            let name = if i > 4 || rng.gen() {
                 i.to_string()
             } else {
                 let typ = if rng.gen() { "memory" } else { "temp" };
@@ -362,13 +362,27 @@ mod tests {
         for _ in 0..40 {
             let old = generate_random(250, 10);
             let new = merge_transient_roots(old.clone());
-            let has_transient_roots = old.roots.iter().any(|&idx| old.graph[idx].is_transient_root());
+            let has_transient_roots = old.roots.iter().any(
+                |&idx| old.graph[idx].is_transient_root(),
+            );
             if !has_transient_roots {
-                let fingerprint = |di: &DepInfos| (di.roots.clone(), di.graph.node_references().map(|n| (n.id(), n.weight().clone())).collect::<Vec<_>>(), di.graph.edge_references().map(|e| (e.source(), e.target())).collect::<Vec<_>>());
+                let fingerprint = |di: &DepInfos| {
+                    (
+                        di.roots.clone(),
+                        di.graph
+                            .node_references()
+                            .map(|n| (n.id(), n.weight().clone()))
+                            .collect::<Vec<_>>(),
+                        di.graph
+                            .edge_references()
+                            .map(|e| (e.source(), e.target()))
+                            .collect::<Vec<_>>(),
+                    )
+                };
                 assert_eq!(fingerprint(&old), fingerprint(&new));
                 return;
             }
-            assert_eq!(old.graph.node_count() +1, new.graph.node_count());
+            assert_eq!(old.graph.node_count() + 1, new.graph.node_count());
             for edge in new.graph.edge_references() {
                 let old_child = &old.graph[edge.target()];
                 let new_child = &new.graph[edge.target()];
