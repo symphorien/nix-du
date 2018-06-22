@@ -1,4 +1,4 @@
-{ stdenv, fetchFromGitHub,
+{ stdenv, fetchFromGitHub, writeTextFile,
 rustPlatform, nix, boost, 
 clangStdenv, clang, llvmPackages,
 graphviz,
@@ -30,6 +30,8 @@ rustPlatform.buildRustPackage rec {
   inherit version;
 
   src = source;
+  # otherwise, when source=null, buildRustPackage will still try to run cargo-vendor
+  cargoVendorDir = if source == null then (writeTextFile {name="dummy"; text="";}) else null;
   inherit cargoSha256;
 
   doCheck = true;
@@ -48,6 +50,6 @@ rustPlatform.buildRustPackage rec {
     homepage = https://github.com/symphorien/nix-du;
     license = licenses.lgpl3;
     maintainers = [ maintainers.symphorien ];
-    platforms = platforms.all;
+    platforms = platforms.unix;
   };
 }
