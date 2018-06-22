@@ -110,7 +110,7 @@ provided as part of graphviz. This is strongly recommmended.
                 .short("O")
                 .long("opt-level")
                 .value_name("N")
-                .help("whether to take store optimisation into account: 0: no, 1: live paths, 2:all paths (default autodetect)")
+                .help("whether to take store optimisation into account: 0: no, 1: live paths, 2: all paths (default autodetect)")
                 .takes_value(true),
         )
         .arg(
@@ -191,7 +191,7 @@ provided as part of graphviz. This is strongly recommmended.
         }
 
         msg!(
-            "Looking for optimized paths... (this could take a long time, use the option -O0 to disable)\n"
+            "Looking for optimized paths... (this could take a long time, pass option -O0 to skip)\n"
         );
         opt::refine_optimized_store(&mut g).unwrap_or_else(|e| {
             eprintln!("Could not unoptimize {:?}", e)

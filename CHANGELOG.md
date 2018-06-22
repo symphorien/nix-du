@@ -2,6 +2,7 @@ master:
 
 * add -O option to take store optimisation into account
 * do not add a root for transient roots if there is not transient root to begin with.
+* do not inhibit ^C in the rust part of nix-du
 
 v0.1.2:
 

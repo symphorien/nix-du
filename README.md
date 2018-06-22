@@ -105,17 +105,20 @@ in the original graph
 
 The representent of the class inherits the total size of the class and the name of an arbitrary member.
 This is sometimes useful, but also often meaningless. For example I have already seen a huge node `glibc-locales` with 
-an edge to texlive components which is surprising since `glibc-locales` has no references...
+an edge to `texlive` components which is surprising since `glibc-locales` has no references...
 
 If you use any of `-s` (only keep nodes bigger than a given size) or `-n` (only keep the `n` biggest nodes) then an approximation
 is done so results may be less accurate (but far more readable !)
 
-### My store is far heavier than the graph suggests!
+### My store is far heavier than `nix-du` claims!
 Only live paths are displayed.
 
 ### My store is far lighter than displayed!
-Your store is optimized with `nix-store --optimise` and `nix-du` does not take this into account.
-If a `1 GB` file has 3 deduplicated copies, they will count for `3 GB` for `nix-du`.
+This has probably to do with store optimisation (see the documentation of `nix-store --optimise`).
+With option `-O0`, if a `1 GB` file has 3 deduplicated copies, they will count for `3 GB` for `nix-du`.
+With option `-O2`, `nix-du` compensates this, but this is really slow.
+Option `-O1` is a middle ground and only compensates this error for alive paths.
+By default, `nix-du` autodetects whether to use `-O0` or `-O1`.
 
 ### I removed a huge node and yet `nix-collect-garbage` freed only little space!
 See the item above
@@ -125,5 +128,4 @@ When you apply a filter with `-n` or `-s` all roots which have a (transitive) ch
 Remaining roots are merged in the `{filtered out}` node.
 
 ## Limitations
-* no optimised store support
 * may use more testing :)
