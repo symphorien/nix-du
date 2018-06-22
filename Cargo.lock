@@ -117,7 +117,7 @@ dependencies = [
 
 [[package]]
 name = "nix-du"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "cc 1.0.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.31.2 (registry+https://github.com/rust-lang/crates.io-index)",

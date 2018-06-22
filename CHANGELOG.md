@@ -1,4 +1,4 @@
-master:
+v0.2.0:
 
 * add -O option to take store optimisation into account
 * do not add a root for transient roots if there is not transient root to begin with.
