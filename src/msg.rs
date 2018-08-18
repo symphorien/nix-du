@@ -30,6 +30,18 @@ macro_rules! msg {
     }
 }
 
+/// like `eprintln!` but then calls exit(first argument).
+#[macro_export]
+macro_rules! die {
+    ($code:expr, $($arg:expr),+) => {
+        {
+            eprintln!($($arg),*);
+            use std::process::exit;
+            exit($code)
+        }
+    }
+}
+
 pub struct Progress {
     increment: usize,
     target: usize,

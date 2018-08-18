@@ -176,9 +176,7 @@ or with a user wide profile:
     };
     let root: Option<Vec<u8>> = matches.value_of("root").map(|path| {
         let path_buf = PathBuf::from(path).read_link().unwrap_or_else(|err| {
-            clap::Error::value_validation_auto(
-                format!("Could not read symlink «{}»: {}", path, err),
-            ).exit()
+            die!(1, "Could not read symlink «{}»: {}", path, err)
         });
         OsString::from(path_buf).into_vec()
     });
@@ -191,10 +189,11 @@ or with a user wide profile:
      **************************************/
 
     msg!("Reading dependency graph from store... ");
-    let mut g = depgraph::DepInfos::read_from_store().unwrap_or_else(|res| {
-        eprintln!("Could not read from store");
-        std::process::exit(res)
-    });
+    let mut g = depgraph::DepInfos::read_from_store().unwrap_or_else(
+        |res| {
+            die!(res, "Could not read from store")
+        },
+    );
     msg!(
         "{} nodes, {} edges read.\n",
         g.graph.node_count(),
@@ -215,8 +214,7 @@ or with a user wide profile:
             .node_references()
             .find(|&(_, drv)| drv.path == root)
             .unwrap_or_else(|| {
-                eprintln!("Could not find any derivation for the specified root");
-                std::process::exit(1i32)
+                die!(1, "Could not find any derivation for the specified root")
             })
             .0
             .clone();
