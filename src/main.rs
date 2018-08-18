@@ -15,8 +15,12 @@ pub mod bindings;
 pub mod opt;
 use msg::*;
 use std::io;
+use std::path::PathBuf;
+use std::ffi::OsString;
+use std::os::unix::ffi::OsStringExt;
 use human_size::Size;
 use humansize::FileSize;
+use petgraph::visit::IntoNodeReferences;
 
 /* so that these functions are available in libnix_adepter.a */
 pub use depgraph::{register_node, register_edge};
@@ -83,6 +87,13 @@ gc-roots which don't match such filters but have a filtered-in child are kept.
 
 The graph can be further simplified by piping it to `tred` (transitive reduction) which is usually \
 provided as part of graphviz. This is strongly recommmended.
+
+nix-du can also be used to investigate disk usage in a nix profile. With option -r PATH \
+it will tell you which of the references of PATH to remove to gain space. Notably this \
+can be used with the system profile on NixOS:
+`nix-du -r /run/current-system/sw/ -s 500MB | tred`
+or with a user wide profile:
+`nix-du -r ~/.nix-profile -s 500MB | tred`
 ",
         )
         .version(crate_version!())
@@ -103,6 +114,14 @@ provided as part of graphviz. This is strongly recommmended.
                 .value_name("N")
                 .conflicts_with("min-size")
                 .help("Only keep the approximately N biggest nodes")
+                .takes_value(true),
+        )
+        .arg(
+            clap::Arg::with_name("root")
+                .short("r")
+                .long("root")
+                .value_name("PATH")
+                .help("Consider the dependencies of PATH instead of all gc roots")
                 .takes_value(true),
         )
         .arg(
@@ -155,8 +174,21 @@ provided as part of graphviz. This is strongly recommmended.
         "auto" => None,
         _ => clap::Error::value_validation_auto("Only -O0, -O1, -O2 exist.".to_owned()).exit(),
     };
+    let root: Option<Vec<u8>> = matches.value_of("root").map(|path| {
+        let path_buf = PathBuf::from(path).read_link().unwrap_or_else(|err| {
+            clap::Error::value_validation_auto(
+                format!("Could not read symlink «{}»: {}", path, err),
+            ).exit()
+        });
+        OsString::from(path_buf).into_vec()
+    });
 
     set_quiet(matches.is_present("quiet"));
+
+
+    /**************************************
+     * end argument parsing               *
+     **************************************/
 
     msg!("Reading dependency graph from store... ");
     let mut g = depgraph::DepInfos::read_from_store().unwrap_or_else(|res| {
@@ -172,6 +204,36 @@ provided as part of graphviz. This is strongly recommmended.
     noisy!({
         print_stats("(no optimization)", &g, StatOpts::Full);
     });
+
+    /******************
+     * handling or -r *
+     ******************/
+
+    if let Some(root) = root {
+        // find the root
+        let rootnode = g.graph
+            .node_references()
+            .find(|&(_, drv)| drv.path == root)
+            .unwrap_or_else(|| {
+                eprintln!("Could not find any derivation for the specified root");
+                std::process::exit(1i32)
+            })
+            .0
+            .clone();
+
+        // replace gc roots by its children
+        g.roots = g.graph.neighbors(rootnode).collect();
+        for &idx in &g.roots {
+            g.graph[idx].is_root = true;
+        }
+
+        // drop dead paths
+        g = reduction::keep_reachable(g);
+    }
+
+    /******************
+     * handling or -O *
+     ******************/
 
     let default_optlevel = Some(StatOpts::Alive);
     let optlevel = optlevel.unwrap_or_else(|| match opt::store_is_optimised(&g) {
@@ -202,6 +264,10 @@ provided as part of graphviz. This is strongly recommmended.
         });
     }
 
+    /*******************
+     * graph reduction *
+     *******************/
+
     g = reduction::merge_transient_roots(g);
     msg!("Computing quotient graph... ");
     g = reduction::condense(g);
@@ -212,6 +278,10 @@ provided as part of graphviz. This is strongly recommmended.
         min_size = sizes[sizes.len().saturating_sub(n_nodes)];
     }
 
+    /*******************
+     * filter handling *
+     *******************/
+
     if min_size > 0 {
         g = reduction::keep(g, |d: &depgraph::Derivation| d.size >= min_size);
     }
@@ -220,6 +290,10 @@ provided as part of graphviz. This is strongly recommmended.
         g.graph.node_count(),
         g.graph.edge_count()
     );
+
+    /*******************
+     * output handling *
+     *******************/
 
     {
         let stdout = io::stdout();

@@ -116,14 +116,15 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
 pub fn store_is_optimised(di: &DepInfos) -> Result<Option<bool>> {
     // there is no way in the nix api to get the linksDir field of a RemoteStore
     // Using this api would only work for LocalStore, which is unfortunate.
-    // So we just infer the linksDir.
-    let root = match di.roots.get(0) {
-        None => return Ok(None),
-        Some(&x) => x,
+    // So we just infer the linksDir from a drv. Not a gc root because it is
+    // usually a symlink.
+    let drv = match &di.graph.raw_nodes().iter().find(
+        |node| !node.weight.is_root,
+    ) {
+        &Some(ref node) => &node.weight,
+        &None => return Ok(None),
     };
-    // roots are not in the store, let's get a real drv
-    let drv = di.graph.neighbors(root).next().expect("root without child");
-    let mut p = match di.graph[drv].path_as_os_str() {
+    let mut p = match drv.path_as_os_str() {
         None => return Ok(None),
         Some(x) => PathBuf::from(x.to_os_string()),
     };
