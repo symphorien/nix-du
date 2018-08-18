@@ -1,6 +1,6 @@
-{nix, fetchpatch}:
+{nix, fetchpatch, lib}:
 # this function patches nix to fix an issue causing spurious test failures
-# FIXME: remove when the channel contains the patch
+if lib.versionAtLeast nix.version "2.1pre6337" then nix else
 nix.overrideAttrs(old: {
   doInstallCheck = false;
   patches = [
