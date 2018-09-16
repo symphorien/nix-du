@@ -1,7 +1,7 @@
 { stdenv, fetchFromGitHub, writeTextFile,
 rustPlatform, nix, boost, 
 clangStdenv, clang, llvmPackages,
-graphviz,
+graphviz, darwin,
 cargoSha256 ? "00h8ma047j6ndy6dayi9hjlwlzjaa4zfss5caqy3gl13rkfqmw4d",
 source ?
   with stdenv.lib.sources;
@@ -41,7 +41,7 @@ rustPlatform.buildRustPackage rec {
   buildInputs = [
     boost
     nix
-  ];
+  ] ++ stdenv.lib.optional stdenv.isDarwin darwin.apple_sdk.frameworks.Security;
 
   RUST_BACKTRACE=1;
 
