@@ -344,7 +344,8 @@ mod tests {
                     assert_eq!(w.kind(), NodeKind::Link);
                 }
             }
-            if root != idx {
+            let make_reachable = g[idx].kind().is_gc_root() || rng.gen();
+            if root != idx && make_reachable {
                 g.add_edge(root, idx, ());
             }
         }
