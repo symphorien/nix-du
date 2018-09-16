@@ -36,7 +36,7 @@ fn print_stats(msg: &'static str, g: &depgraph::DepInfos, opts: StatOpts) {
     let dead_size = if opts == StatOpts::Alive {
         0
     } else {
-        g.graph.raw_nodes().iter().map(|n| n.weight.size).sum()
+        g.size()
     };
     let to_human_readable = |size: u64| {
         size.file_size(humansize::file_size_opts::BINARY)

@@ -288,6 +288,11 @@ impl DepInfos {
         sum
     }
 
+    /// returns the sum of the size of all the derivations
+    pub fn size(&self) -> u64 {
+        self.graph.raw_nodes().iter().map(|n| n.weight.size).sum()
+    }
+
     /// returns a Dfs suitable to visit all reachable nodes.
     pub fn dfs(&self) -> Dfs<NodeIndex, fixedbitset::FixedBitSet> {
         petgraph::visit::Dfs::new(&self.graph, self.root)
