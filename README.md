@@ -27,10 +27,13 @@ $ nix-env -I nixpkgs=https://nixos.org/channels/nixos-unstable/nixexprs.tar.xz -
 ```
 #### With `cargo`
 Just run `cargo build --release` at the root of the repository.
-One of the dependencies at least requires rust `>=1.20`.
+Regarding the rustc version needed, compilation is tested with
+what the current stable version of nixpkgs provides. Currently
+`nix-du` is known to require at least rustc `>=1.26`.
 
 You need `nix` version 2 and `boost` (a dependency of `nix`).
-Tests need `dot` in `$PATH`.
+Tests need `dot` in `$PATH`. Tests are known to non-deterministically fail with
+`nix < 2.1`.
 
 Note that `nix` 2 is only needed to build `nix-du`; `nix-du` should be able to talk to a
 `nix` 1 daemon.
@@ -76,7 +79,7 @@ rid of these 50MB you have to delete both the channels of `root` and `coucou`.
 
 `nix-index` on the other hand does not appear in the graph: if you remove your (only)
 profile (in yellow) then `nix-index` will be gone. The node `nix-index` has thus been
-merged with the node of the profile. To sum up, if you remove your profile, you will 
+merged with the node of the profile. To sum up, if you remove your profile, you will
 save around 27MB.
 
 Now, you install `graphviz`.
@@ -104,7 +107,7 @@ by the same set of gc-roots"
 in the original graph
 
 The representent of the class inherits the total size of the class and the name of an arbitrary member.
-This is sometimes useful, but also often meaningless. For example I have already seen a huge node `glibc-locales` with 
+This is sometimes useful, but also often meaningless. For example I have already seen a huge node `glibc-locales` with
 an edge to `texlive` components which is surprising since `glibc-locales` has no references...
 
 If you use any of `-s` (only keep nodes bigger than a given size) or `-n` (only keep the `n` biggest nodes) then an approximation

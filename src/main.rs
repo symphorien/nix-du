@@ -17,10 +17,8 @@ use msg::*;
 use std::io;
 use std::path::PathBuf;
 use std::ffi::OsString;
-use std::os::unix::ffi::OsStringExt;
 use human_size::Size;
 use humansize::FileSize;
-use petgraph::visit::IntoNodeReferences;
 
 /* so that these functions are available in libnix_adepter.a */
 pub use depgraph::{register_node, register_edge};
@@ -60,7 +58,6 @@ fn print_stats(msg: &'static str, g: &depgraph::DepInfos, opts: StatOpts) {
         );
     }
 }
-
 fn main() {
     let matches = clap::App::new("nix-du")
         .about(
@@ -174,11 +171,11 @@ or with a user wide profile:
         "auto" => None,
         _ => clap::Error::value_validation_auto("Only -O0, -O1, -O2 exist.".to_owned()).exit(),
     };
-    let root: Option<Vec<u8>> = matches.value_of("root").map(|path| {
-        let path_buf = PathBuf::from(path).read_link().unwrap_or_else(|err| {
-            die!(1, "Could not read symlink «{}»: {}", path, err)
+    let root: Option<OsString> = matches.value_of("root").map(|path| {
+        let path_buf = PathBuf::from(path).canonicalize().unwrap_or_else(|err| {
+            die!(1, "Could not canonicalize path «{}»: {}", path, err)
         });
-        OsString::from(path_buf).into_vec()
+        OsString::from(path_buf)
     });
 
     set_quiet(matches.is_present("quiet"));
@@ -189,7 +186,7 @@ or with a user wide profile:
      **************************************/
 
     msg!("Reading dependency graph from store... ");
-    let mut g = depgraph::DepInfos::read_from_store().unwrap_or_else(
+    let mut g = depgraph::DepInfos::read_from_store(root).unwrap_or_else(
         |res| {
             die!(res, "Could not read from store")
         },
@@ -204,30 +201,6 @@ or with a user wide profile:
         print_stats("(no optimization)", &g, StatOpts::Full);
     });
 
-    /******************
-     * handling or -r *
-     ******************/
-
-    if let Some(root) = root {
-        // find the root
-        let rootnode = g.graph
-            .node_references()
-            .find(|&(_, drv)| drv.path == root)
-            .unwrap_or_else(|| {
-                die!(1, "Could not find any derivation for the specified root")
-            })
-            .0
-            .clone();
-
-        // replace gc roots by its children
-        g.roots = g.graph.neighbors(rootnode).collect();
-        for &idx in &g.roots {
-            g.graph[idx].is_root = true;
-        }
-
-        // drop dead paths
-        g = reduction::keep_reachable(g);
-    }
 
     /******************
      * handling or -O *
@@ -281,7 +254,7 @@ or with a user wide profile:
      *******************/
 
     if min_size > 0 {
-        g = reduction::keep(g, |d: &depgraph::Derivation| d.size >= min_size);
+        g = reduction::keep(g, |d: &depgraph::DepNode| d.size >= min_size);
     }
     msg!(
         "{} nodes, {} edges.\n",

@@ -56,5 +56,8 @@ fn bindgen_test_layout_path_t() {
     );
 }
 extern "C" {
-    pub fn populateGraph(graph: *mut ::std::os::raw::c_void) -> ::std::os::raw::c_int;
+    pub fn populateGraph(
+        graph: *mut ::std::os::raw::c_void,
+        rootPath: *const ::std::os::raw::c_char,
+    ) -> ::std::os::raw::c_int;
 }

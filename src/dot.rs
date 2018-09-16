@@ -43,12 +43,15 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
         b"node [shape = tripleoctagon, style=filled];\n",
     )?;
     w.write_all(b"{ rank = same;\n")?;
-    for idx in &dependencies.roots {
+    for idx in dependencies.roots() {
         write!(w, "N{}; ", idx.index())?;
     }
     w.write_all(b"\n};\n")?;
     w.write_all(b"node [shape = box];\n")?;
     for (idx, node) in dependencies.graph.node_references() {
+        if idx == dependencies.root {
+            continue;
+        };
         let size = node.size
             .file_size(humansize::file_size_opts::BINARY)
             .unwrap();
@@ -68,10 +71,13 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
             b,
             textcolor
         )?;
-        w.write_all(node.name())?;
+        w.write_all(&node.name())?;
         writeln!(w, " ({})\"];", size)?;
     }
     for edge in dependencies.graph.raw_edges() {
+        if edge.source() == dependencies.root {
+            continue;
+        }
         writeln!(
             w,
             "N{} -> N{};",

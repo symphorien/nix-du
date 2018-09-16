@@ -32,9 +32,9 @@ extern "C" {
   } Info;
   extern void register_node(void *graph, path_t *node);
   extern void register_edge(void *graph, unsigned from, unsigned to);
-  int populateGraph(void *graph) {
+  int populateGraph(void *graph, const char* rootPath) {
     using namespace nix;
-    int retcode = handleExceptions("nix-du", [graph]() {
+    int retcode = handleExceptions("nix-du", [graph, rootPath]() {
       initNix();
       auto store = openStore();
 
@@ -52,35 +52,56 @@ extern "C" {
           entry.path = info.data->path.c_str();
           node_to_id[p] = info;
           register_node(graph, &entry);
-          return info;
+          return std::make_pair(false, info);
         } else {
-          return it->second;
+          return std::make_pair(true, it->second);
         }
       };
 
-      std::set<Path> paths = store->queryAllValidPaths();
+      std::vector<Path> queue;
+      if (!rootPath) {
+        // dump all the store
+        std::set<Path> paths = store->queryAllValidPaths();
+        std::copy(paths.begin(), paths.end(), std::back_inserter(queue));
+      } else {
+        // dump only the recursive closure of rootPath
+        const Path naiveRootPath(rootPath);
+        const Path rootDrv = store->followLinksToStorePath(naiveRootPath);
+        if (!store->isValidPath(rootDrv)) {
+          throw Error("'%s' is not a valid path", rootPath);
+        }
+        queue.push_back(rootDrv);
+      }
 
-      for (const Path& path: paths) {
-        Info from = get_infos(path);
+      while (!queue.empty()) {
+        Path path = queue.back();
+        queue.pop_back();
+        Info from = get_infos(path).second;
         for (const Path& dep: from.data->references) {
-          Info to = get_infos(dep);
+          Info to; bool cached;
+          std::tie(cached, to) = get_infos(dep);
           register_edge(graph, from.index, to.index);
+          if (!cached) {
+            queue.push_back(dep);
+          }
         }
       }
 
-      unsigned index = node_to_id.size();
-      for (auto root : store->findRoots()) {
-        Path link, storepath;
-        std::tie(link, storepath) = root;
-        if (store->isValidPath(storepath)) {
-          path_t entry;
-          entry.is_root = 1;
-          entry.size = link.size();
-          entry.path = link.c_str();
-          register_node(graph, &entry);
-          Info to = get_infos(storepath);
-          register_edge(graph, index, to.index);
-          ++index;
+      if (!rootPath) {
+        unsigned index = node_to_id.size();
+        for (auto root : store->findRoots()) {
+          Path link, storepath;
+          std::tie(link, storepath) = root;
+          if (store->isValidPath(storepath)) {
+            path_t entry;
+            entry.is_root = 1;
+            entry.size = link.size();
+            entry.path = link.c_str();
+            register_node(graph, &entry);
+            Info to = get_infos(storepath).second;
+            register_edge(graph, index, to.index);
+            ++index;
+          }
         }
       }
     });

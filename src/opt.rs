@@ -13,8 +13,6 @@ use std::os::unix::fs::MetadataExt;
 use self::walkdir::{WalkDir, DirEntryExt};
 use petgraph::prelude::NodeIndex;
 
-static SHARED_PREFIX: &'static [u8] = b"shared:";
-
 enum Owner {
     One(NodeIndex),
     Several(NodeIndex),
@@ -47,14 +45,10 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
             // scope where we borrow the graph
             let weight = &di.graph[idx];
             // roots are not necessary readable, and anyway they are symlinks
-            if weight.is_root {
+            if weight.kind() != NodeKind::Path {
                 continue;
             }
-            // we also filter out dummy nodes like {memory}
-            path = match weight.path_as_os_str() {
-                None => continue,
-                Some(x) => x.to_os_string(),
-            };
+            path = weight.description.path_as_os_str().unwrap().to_os_string();
         }
 
         // if path is a symlink to a directory, we enumerate files not in this
@@ -74,25 +68,21 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
             let ino = entry.ino();
             match inode_to_owner.entry(ino) {
                 Entry::Vacant(mut e) => {
+                    // first time we see this inode
                     e.insert(Owner::One(idx));
                 }
                 Entry::Occupied(mut e) => {
+                    // this inode is deduplicated
                     let metadata = entry.metadata()?;
                     let v = e.get_mut();
                     let new_node = match *v {
                         Owner::One(n) => {
-                            let mut path;
-                            {
-                                // borrow of di.graph;
-                                let name = di.graph[idx].name();
-                                path = Vec::with_capacity(name.len() + SHARED_PREFIX.len());
-                                path.extend(SHARED_PREFIX);
-                                path.extend(name);
-                            }
-                            let new_node = di.graph.add_node(Derivation {
-                                path,
+                            // second time we see this inode;
+                            // let's create a "shared" node for these files
+                            let name = di.graph[idx].name().into_owned();
+                            let new_node = di.graph.add_node(DepNode {
+                                description: NodeDescription::Shared(name),
                                 size: metadata.len(),
-                                is_root: false,
                             });
                             di.graph.add_edge(n, new_node, ());
                             di.graph[n].size -= metadata.len();
@@ -119,15 +109,12 @@ pub fn store_is_optimised(di: &DepInfos) -> Result<Option<bool>> {
     // So we just infer the linksDir from a drv. Not a gc root because it is
     // usually a symlink.
     let drv = match &di.graph.raw_nodes().iter().find(
-        |node| !node.weight.is_root,
+        |node| node.weight.kind() == NodeKind::Path,
     ) {
         &Some(ref node) => &node.weight,
         &None => return Ok(None),
     };
-    let mut p = match drv.path_as_os_str() {
-        None => return Ok(None),
-        Some(x) => PathBuf::from(x.to_os_string()),
-    };
+    let mut p = PathBuf::from(drv.description.path_as_os_str().unwrap().to_os_string());
     // compute the location of .links
     if !p.pop() {
         return Ok(None);
