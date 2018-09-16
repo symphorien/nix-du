@@ -171,7 +171,7 @@ fn assert_matches(got: &Output, expected: &Output) {
     assert_matches_one_of(got, &[expected])
 }
 
-pub fn run_and_parse(args: &'static [&'static str], t: &TestDir) -> Output {
+pub fn run_and_parse<'a>(args: &'a [&'a str], t: &'a TestDir) -> Output {
     let process = call_self(&t).args(args).expect_success();
     let out = String::from_utf8_lossy(&process.stdout);
     let err = String::from_utf8_lossy(&process.stderr);
@@ -439,5 +439,52 @@ dec_test!(
 
         dec_out!(expected_nonopt = (coucou 2, bar 1, baz 3; ));
         assert_matches(&real, &expected_nonopt);
+    }
+);
+
+dec_test!(
+    rooted_simple = |t| {
+        dec_spec!(spec = (
+            a, b, c, d, e, f, g, h, i, j;
+            a->b, c->d, d->e, e->j, e->g, d->f, f->g, c->h, h->i));
+        prepare_store(&spec, &t);
+
+        dec_out!(expected = (
+                e 2, g 1, f 1;
+                e -> g, f -> g));
+
+        // find the store path of d
+        let out = call("nix-store", &t).args(&["--gc", "--print-live"]).expect_success();
+        let txt : &str = &String::from_utf8_lossy(&out.stdout);
+        let mut path: Option<String> = None;
+        for line in txt.lines() {
+            if line.starts_with("/") && line.ends_with("-d") {
+                path = Some(line.into());
+            }
+        }
+        // run with -r /nix/store/hash-d
+        let real = run_and_parse(&["-r", &path.unwrap()], &t);
+        assert_matches(&real, &expected);
+    }
+);
+
+dec_test!(
+    rooted_lazy = |t| {
+        dec_spec!(spec = (
+              coucou, foo, bar;
+              coucou -> foo)); // coucou != foo == bar
+
+        prepare_store(&spec, &t);
+        call("nix-store", &t).arg("--optimise").expect_success();
+
+        dec_out!(expected = (foo 1;));
+        // if nix-du were was reading the whole store, it would deduplicate foo and bar
+        // we would get shared_something
+        // this test checks we only read the closure of the root
+
+        let path = t.path("roots/coucou");
+        let root = path.to_string_lossy();
+        let real = run_and_parse(&["-O2", "-r", &root], &t);
+        assert_matches(&real, &expected);
     }
 );
