@@ -19,7 +19,6 @@ use msg::*;
 use std::io;
 use std::path::PathBuf;
 use std::ffi::OsString;
-use std::os::unix::ffi::OsStrExt;
 use human_size::{Size, Byte};
 use humansize::FileSize;
 
@@ -34,7 +33,7 @@ enum StatOpts {
 
 type OptLevel = Option<StatOpts>;
 
-fn print_stats<W: io::Write>(w: &mut W, root: Option<&OsString>, g: &depgraph::DepInfos) -> io::Result<()> {
+fn print_stats<W: io::Write>(w: &mut W, g: &depgraph::DepInfos) -> io::Result<()> {
     use depgraph::DedupAwareness::*;
     use depgraph::Reachability::*;
     let to_human_readable = |size: u64| {
@@ -49,11 +48,12 @@ fn print_stats<W: io::Write>(w: &mut W, root: Option<&OsString>, g: &depgraph::D
         return Ok(());
     }
     write!(w, "Size statistics for the ")?;
-    match &root {
+    let root = &g.graph[g.root];
+    match root.description.path() {
         None => write!(w, "whole store")?,
-        Some(x) => {
+        Some(p) => {
             write!(w, "closure of ")?;
-            w.write_all(x.as_bytes())?
+            w.write_all(p)?
         }
     }
     write!(w, ":\n")?;
@@ -203,7 +203,7 @@ or with a user wide profile:
      **************************************/
 
     msg!("Reading dependency graph from store... ");
-    let mut g = depgraph::DepInfos::read_from_store(root.clone()).unwrap_or_else(
+    let mut g = depgraph::DepInfos::read_from_store(root).unwrap_or_else(
         |res| {
             die!(res, "Could not read from store")
         },
@@ -247,7 +247,7 @@ or with a user wide profile:
     noisy!({
         let stderr = io::stderr();
         let mut handle = stderr.lock();
-        print_stats(&mut handle, root.as_ref(), &g).expect("could not write to stderr");
+        print_stats(&mut handle, &g).expect("could not write to stderr");
     });
 
     /*******************
