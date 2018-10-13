@@ -19,7 +19,7 @@ use msg::*;
 use std::io;
 use std::path::PathBuf;
 use std::ffi::OsString;
-use human_size::Size;
+use human_size::{Size, Byte};
 use humansize::FileSize;
 
 /* so that these functions are available in libnix_adepter.a */
@@ -149,7 +149,7 @@ or with a user wide profile:
                             .to_owned(),
                     ).exit()
                 })
-                .into_bytes() as u64
+                .into::<Byte>().value() as u64
         }
         None => 0,
     };

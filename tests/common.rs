@@ -9,7 +9,7 @@ use std::fs;
 use petgraph::prelude::*;
 use petgraph::visit::IntoNodeReferences;
 use cli_test_dir::ExpectStatus;
-use human_size::Size;
+use human_size::{Size, Byte};
 
 fn setup_nix_env(mut c: Command, t: &TestDir) -> Command {
     let store_root = t.path("nixstore");
@@ -141,7 +141,7 @@ pub fn parse_out(out: String) -> Output {
             .replace("{", "")
             .replace("}", "");
         let size: Size = node[3].parse().unwrap(); // should be 100KB*num of deps
-        let count = ((size.into_bytes() as f64) / 100_000f64) as u16;
+        let count = ((size.into::<Byte>().value() as f64) / 100_000f64) as u16;
         id_to_node.insert(id, res.add_node(Class { name, count }));
     }
     for edge in edge_re.captures_iter(&out) {
