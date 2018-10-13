@@ -333,12 +333,12 @@ impl DepInfos {
     /// records the current size of the graph in its metadata field.
     pub fn record_metadata(&mut self) {
         let dedup = self.metadata.dedup;
-        let mut entry = (&mut self.metadata).size[dedup];
-        if entry[Reachability::Connected].is_none() {
-            entry[Reachability::Connected] = Some(self.reachable_size());
+        macro_rules! entry { () => {self.metadata.size[dedup]} };
+        if entry!()[Reachability::Connected].is_none() {
+            entry!()[Reachability::Connected] = Some(self.reachable_size());
         }
-        if self.metadata.reachable == Reachability::Disconnected && entry[Reachability::Disconnected].is_none() {
-            entry[Reachability::Disconnected] = Some(self.size());
+        if self.metadata.reachable == Reachability::Disconnected && entry!()[Reachability::Disconnected].is_none() {
+            entry!()[Reachability::Disconnected] = Some(self.size());
         }
     }
 
@@ -366,7 +366,8 @@ impl DepInfos {
     /// checks metadata is consistent
     #[cfg(test)]
     pub fn check_metadata(&self) {
-        if self.metadata.reachable == Reachability::Connected {
+        use self::Reachability::*;
+        if self.metadata.reachable == Connected {
             let mut i = 0;
             let mut dfs = self.dfs();
             while let Some(_) = dfs.next(&self.graph) {
@@ -375,10 +376,7 @@ impl DepInfos {
             assert_eq!(i, self.graph.node_count());
         }
         let entry = &self.metadata.size[self.metadata.dedup];
-        if let Some(s) = entry[Reachability::Connected] {
-            assert_eq!(s, self.reachable_size());
-        }
-        if let Some(s) = entry[Reachability::Disconnected] {
+        if let Some(s) = entry[self.metadata.reachable] {
             assert_eq!(s, self.size());
         }
     }
