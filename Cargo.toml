@@ -32,4 +32,4 @@ features = ["suggestions", "color", "wrap_help"]
 [dev-dependencies]
 rand = "0.4"
 cli_test_dir = "0.1"
-regex = "0.2"
+regex = "1"
