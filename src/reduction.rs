@@ -263,7 +263,7 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
 mod tests {
     extern crate petgraph;
     extern crate rand;
-    use self::rand::distributions::{IndependentSample, Weighted, WeightedChoice};
+    use self::rand::distributions::{Distribution, Weighted, WeightedChoice};
     use self::rand::Rng;
     use depgraph::*;
     use reduction::*;
@@ -343,7 +343,7 @@ mod tests {
         }
         for i in 0..size {
             for j in (i + 1)..size {
-                if wc.ind_sample(&mut rng) && !g[NodeIndex::from(j)].kind().is_gc_root() {
+                if wc.sample(&mut rng) && !g[NodeIndex::from(j)].kind().is_gc_root() {
                     g.add_edge(NodeIndex::from(i), NodeIndex::from(j), ());
                 }
             }
@@ -380,7 +380,7 @@ mod tests {
         // there may be edges from root to root
         for i in di.roots().collect::<Vec<_>>() {
             for j in di.roots().collect::<Vec<_>>() {
-                if j > i && wc.ind_sample(&mut rng) {
+                if j > i && wc.sample(&mut rng) {
                     di.graph.add_edge(i, j, ());
                 }
             }
