@@ -19,6 +19,7 @@ use msg::*;
 use std::io;
 use std::path::PathBuf;
 use std::ffi::OsString;
+use std::os::unix::ffi::OsStrExt;
 use human_size::{Size, Byte};
 use humansize::FileSize;
 
@@ -33,33 +34,47 @@ enum StatOpts {
 
 type OptLevel = Option<StatOpts>;
 
-fn print_stats(msg: &'static str, g: &depgraph::DepInfos, opts: StatOpts) {
-    let alive_size = g.reachable_size();
-    let dead_size = if opts == StatOpts::Alive {
-        0
-    } else {
-        g.size()
-    };
+fn print_stats<W: io::Write>(w: &mut W, root: Option<&OsString>, g: &depgraph::DepInfos) -> io::Result<()> {
+    use depgraph::DedupAwareness::*;
+    use depgraph::Reachability::*;
     let to_human_readable = |size: u64| {
         size.file_size(humansize::file_size_opts::BINARY)
             .unwrap_or("nan".to_owned())
     };
-    if opts == StatOpts::Alive {
-        eprintln!(
-        "Store size {}:\t{} alive.",
-        msg,
-        to_human_readable(alive_size),
-    );
-    } else {
-        eprintln!(
-            "Store size {}:\t{} alive, {} dead, {} total.",
-            msg,
-            to_human_readable(alive_size),
-            to_human_readable(dead_size - alive_size),
-            to_human_readable(dead_size)
-        );
+    let size = &g.metadata.size;
+    let best = enum_map!{
+        what => size[Aware][what].as_ref().or(size[Unaware][what].as_ref())
+    };
+    if best[Connected].is_none() && best[Disconnected].is_none() {
+        return Ok(());
     }
+    write!(w, "Size statistics for the ")?;
+    match &root {
+        None => write!(w, "whole store")?,
+        Some(x) => {
+            write!(w, "closure of ")?;
+            w.write_all(x.as_bytes())?
+        }
+    }
+    write!(w, ":\n")?;
+    for (what, value) in best {
+        if let Some(&total) = value {
+            let desc = match what {
+                Disconnected => "Total",
+                Connected => "Alive",
+            };
+            write!(w, "\t{}: {}", desc, to_human_readable(total))?;
+            if size[Aware][what].is_none() {
+                write!(w, " (not taking optimisation into account)")?;
+            } else if let Some(unopt) = size[Unaware][what] {
+                write!(w, " ({} saved by optimisation)", to_human_readable(unopt - total))?;
+            }
+            write!(w, "\n")?;
+        }
+    }
+    Ok(())
 }
+
 fn main() {
     let matches = clap::App::new("nix-du")
         .about(
@@ -188,7 +203,7 @@ or with a user wide profile:
      **************************************/
 
     msg!("Reading dependency graph from store... ");
-    let mut g = depgraph::DepInfos::read_from_store(root).unwrap_or_else(
+    let mut g = depgraph::DepInfos::read_from_store(root.clone()).unwrap_or_else(
         |res| {
             die!(res, "Could not read from store")
         },
@@ -198,10 +213,6 @@ or with a user wide profile:
         g.graph.node_count(),
         g.graph.edge_count()
     );
-
-    noisy!({
-        print_stats("(no optimization)", &g, StatOpts::Full);
-    });
 
 
     /******************
@@ -231,11 +242,13 @@ or with a user wide profile:
         opt::refine_optimized_store(&mut g).unwrap_or_else(|e| {
             eprintln!("Could not unoptimize {:?}", e)
         });
-
-        noisy!({
-            print_stats("(with optimization)", &g, statopts);
-        });
     }
+
+    noisy!({
+        let stderr = io::stderr();
+        let mut handle = stderr.lock();
+        print_stats(&mut handle, root.as_ref(), &g).expect("could not write to stderr");
+    });
 
     /*******************
      * graph reduction *
