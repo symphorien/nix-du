@@ -97,6 +97,8 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
             }
         }
     }
+    di.metadata.dedup = DedupAwareness::Aware;
+    di.record_metadata();
     Ok(())
 }
 

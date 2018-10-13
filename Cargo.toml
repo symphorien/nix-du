@@ -23,6 +23,7 @@ humansize = "1"
 human-size = "0.3"
 palette = "0.2"
 walkdir = "2"
+enum-map = "0.4"
 
 [dependencies.clap]
 version = "2"

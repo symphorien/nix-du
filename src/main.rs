@@ -2,6 +2,8 @@
 
 #[macro_use]
 extern crate clap;
+#[macro_use]
+extern crate enum_map;
 extern crate human_size;
 extern crate humansize;
 extern crate petgraph;

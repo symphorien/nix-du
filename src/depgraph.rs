@@ -20,6 +20,8 @@ use petgraph::prelude::NodeIndex;
 use petgraph::visit::IntoNodeReferences;
 use petgraph::visit::Dfs;
 
+use enum_map::EnumMap;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum NodeKind {
     Path,
@@ -211,6 +213,29 @@ impl fmt::Debug for DepNode {
     }
 }
 
+
+/// Whether all nodes are reachable from the root
+#[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Reachability {
+    Connected,
+    Disconnected,
+}
+
+/// Whether deduplicated nodes are counted several times
+#[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DedupAwareness {
+    Aware,
+    Unaware,
+}
+
+#[derive(Clone, Debug)]
+pub struct SizeMetadata {
+    pub reachable: Reachability,
+    pub dedup: DedupAwareness,
+    pub size: EnumMap<DedupAwareness, EnumMap<Reachability, Option<u64>>>
+}
+
+
 pub type Edge = ();
 
 pub type DepGraph = petgraph::graph::Graph<DepNode, Edge, petgraph::Directed>;
@@ -219,6 +244,7 @@ pub type DepGraph = petgraph::graph::Graph<DepNode, Edge, petgraph::Directed>;
 pub struct DepInfos {
     pub graph: DepGraph,
     pub root: NodeIndex,
+    pub metadata: SizeMetadata,
 }
 
 // symbol exported to libnix_adapter
@@ -265,9 +291,19 @@ impl DepInfos {
             None => g.add_node(DepNode::dummy()),
             Some(_) => NodeIndex::from(0)
         };
+        let reachable = match &root_data {
+            None => Reachability::Disconnected,
+            Some(_) => Reachability::Connected,
+        };
+        let metadata = SizeMetadata {
+            reachable,
+            dedup: DedupAwareness::Unaware,
+            size: enum_map!{ _ => enum_map!{ _ => None }},
+        };
         let mut di = DepInfos {
             root: root_idx,
             graph: g,
+            metadata,
         };
         if root_data.is_none() {
             let gc_roots: Vec<_> = di.graph.node_references().filter_map(|(idx, n)| if n.kind().is_gc_root() { Some(idx) } else {None}).collect();
@@ -275,6 +311,7 @@ impl DepInfos {
                 di.graph.add_edge(di.root, root, ());
             }
         }
+        di.record_metadata();
         Ok(di)
     }
 
@@ -292,6 +329,19 @@ impl DepInfos {
     pub fn size(&self) -> u64 {
         self.graph.raw_nodes().iter().map(|n| n.weight.size).sum()
     }
+
+    /// records the current size of the graph in its metadata field.
+    pub fn record_metadata(&mut self) {
+        let dedup = self.metadata.dedup;
+        let mut entry = (&mut self.metadata).size[dedup];
+        if entry[Reachability::Connected].is_none() {
+            entry[Reachability::Connected] = Some(self.reachable_size());
+        }
+        if self.metadata.reachable == Reachability::Disconnected && entry[Reachability::Disconnected].is_none() {
+            entry[Reachability::Disconnected] = Some(self.size());
+        }
+    }
+
 
     /// returns a Dfs suitable to visit all reachable nodes.
     pub fn dfs(&self) -> Dfs<NodeIndex, fixedbitset::FixedBitSet> {
@@ -311,5 +361,25 @@ impl DepInfos {
         self.roots()
             .map(|idx| { assert_ne!(idx, self.root); String::from_utf8_lossy(&self.graph[idx].name()).into() })
             .collect()
+    }
+
+    /// checks metadata is consistent
+    #[cfg(test)]
+    pub fn check_metadata(&self) {
+        if self.metadata.reachable == Reachability::Connected {
+            let mut i = 0;
+            let mut dfs = self.dfs();
+            while let Some(_) = dfs.next(&self.graph) {
+                i += 1;
+            }
+            assert_eq!(i, self.graph.node_count());
+        }
+        let entry = &self.metadata.size[self.metadata.dedup];
+        if let Some(s) = entry[Reachability::Connected] {
+            assert_eq!(s, self.reachable_size());
+        }
+        if let Some(s) = entry[Reachability::Disconnected] {
+            assert_eq!(s, self.size());
+        }
     }
 }

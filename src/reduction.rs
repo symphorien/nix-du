@@ -101,7 +101,10 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
         new_graph.update_edge(from, to, ());
     }
 
-    DepInfos { graph: new_graph, root: new_root }
+    di.graph = new_graph;
+    di.root = new_root;
+    di.metadata.reachable = Reachability::Connected;
+    di
 }
 
 /// Creates a new graph retaining only reachable nodes
@@ -127,7 +130,10 @@ pub fn keep_reachable(mut di: DepInfos) -> DepInfos {
         }
     }
 
-    DepInfos { graph: new_graph, root: new_ids[&di.root] }
+    di.graph = new_graph;
+    di.root = new_ids[&di.root];
+    di.metadata.reachable = Reachability::Connected;
+    di
 }
 
 /// Creates a new graph retaining only nodes whose weight return
@@ -137,7 +143,11 @@ pub fn keep_reachable(mut di: DepInfos) -> DepInfos {
 /// well. Other roots (and the size gathered below) are merged in a dummy root.
 ///
 /// Note that `filter` will be called at most once per node.
+///
+/// Requires that all nodes are reachable from the root.
+/// `assert_eq!(di.metadata.reachable, Reachability::Connected);`
 pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
+    assert_eq!(di.metadata.reachable, Reachability::Connected);
     let mut new_graph = DepGraph::new();
     // ids of nodes put in new_graph
     let mut new_ids = collections::BTreeMap::new();
@@ -242,7 +252,11 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
         let id =  new_graph.add_node(fake_root);
         new_graph.add_edge(new_root, id, ());
     }
-    DepInfos { root: new_root, graph: new_graph }
+
+    di.root = new_root;
+    di.graph = new_graph;
+    di.metadata.reachable = Reachability::Connected;
+    di
 }
 
 #[cfg(test)]
@@ -264,12 +278,14 @@ mod tests {
     /// * the root, by path
     fn check_invariants<T: Fn(DepInfos) -> DepInfos>(transform: T, di: DepInfos, same_roots: bool) {
         let orig = di.clone();
+        orig.check_metadata();
         let new = transform(di);
         println!(
             "OLD:\n{:?}\nNew:\n{:?}",
             petgraph::dot::Dot::new(&orig.graph),
             petgraph::dot::Dot::new(&new.graph)
             );
+        new.check_metadata();
         if same_roots {
             assert_eq!(new.roots_name(), orig.roots_name());
         }
@@ -283,7 +299,10 @@ mod tests {
     /// * there are `size` derivations
     /// * the expected average degree of the graph should be `avg_degree`
     /// * the first 62 nodes have size `1<<index`
-    fn generate_random(size: u32, avg_degree: u32) -> DepInfos {
+    ///
+    /// if connected is true, forces the output to be reachable from the root
+    /// otherwise, it is random.
+    fn generate_random(size: u32, avg_degree: u32, connected: bool) -> DepInfos {
         use self::NodeDescription::*;
         assert!(avg_degree <= size - 1);
         let mut items = vec![
@@ -329,6 +348,11 @@ mod tests {
                 }
             }
         }
+        let mut metadata = SizeMetadata {
+            reachable: Reachability::Connected,
+            dedup: DedupAwareness::Unaware,
+            size: enum_map!{ _ => enum_map!{ _ => None }},
+        };
         let root = g.add_node(if rooted { DepNode { description: Path("root".into()), size: 42 } } else { DepNode::dummy() });
         for idx in g.externals(petgraph::Direction::Incoming).collect::<Vec<_>>() {
             if !rooted && rng.gen() {
@@ -344,12 +368,15 @@ mod tests {
                     assert_eq!(w.kind(), NodeKind::Link);
                 }
             }
-            let make_reachable = g[idx].kind().is_gc_root() || rng.gen();
+            let make_reachable = connected || g[idx].kind().is_gc_root() || rng.gen();
             if root != idx && make_reachable {
                 g.add_edge(root, idx, ());
             }
+            if !make_reachable {
+                metadata.reachable = Reachability::Disconnected;
+            }
         }
-        let mut di = DepInfos { graph: g, root };
+        let mut di = DepInfos { graph: g, root, metadata };
         // there may be edges from root to root
         for i in di.roots().collect::<Vec<_>>() {
             for j in di.roots().collect::<Vec<_>>() {
@@ -359,6 +386,7 @@ mod tests {
             }
         }
         let _ = petgraph::algo::toposort(&di.graph, None).expect("the random graph has a cycle");
+        di.record_metadata();
         di
     }
     fn size_to_old_nodes(drv: &DepNode) -> collections::BTreeSet<NodeIndex> {
@@ -385,7 +413,7 @@ mod tests {
     /// check that condense and keep preserve some invariants
     fn invariants() {
         for _ in 0..40 {
-            let di = generate_random(250, 10);
+            let di = generate_random(250, 10, false);
             println!("testing merge_transient_roots");
             check_invariants(merge_transient_roots, di.clone(), false);
             println!("testing condense");
@@ -393,16 +421,17 @@ mod tests {
             println!("testing keep_reachable");
             check_invariants(keep_reachable, di.clone(), true);
             println!("testing keep none");
-            check_invariants(|x| keep(x, |_| false), di.clone(), false);
+            let trimmed = keep_reachable(di);
+            check_invariants(|x| keep(x, |_| false), trimmed.clone(), false);
             println!("testing keep all");
-            check_invariants(|x| keep(x, |_| true), di.clone(), true);
+            check_invariants(|x| keep(x, |_| true), trimmed, true);
         }
     }
     #[test]
     fn check_merge_transient_roots() {
         use self::NodeKind::*;
         for _ in 0..40 {
-            let old = generate_random(250, 10);
+            let old = generate_random(250, 10, false);
             let new = merge_transient_roots(old.clone());
             let has_transient_roots = old.graph.raw_nodes().iter().any(
                 |w| w.weight.kind() == Temporary || w.weight.kind() == Memory
@@ -445,7 +474,7 @@ mod tests {
     #[test]
     fn check_keep_reachable() {
         for _ in 0..40 {
-            let old = generate_random(150, 1);
+            let old = generate_random(150, 1, false);
             let new = keep_reachable(old.clone());
             let old_map = revmap(&old.graph);
             let new_map = revmap(&new.graph);
@@ -480,7 +509,7 @@ mod tests {
         // 62 so that each node is uniquely determined by its size, and
         // merging nodes doesn't destroy this information
         for _ in 0..80 {
-            let old = generate_random(62, 10);
+            let old = generate_random(62, 10, false);
             let mut old_rev = old.graph.clone();
             old_rev.reverse();
             let new = condense(old.clone());
@@ -557,10 +586,12 @@ mod tests {
     }
     #[test]
     fn check_keep() {
-        let filter_drv = |drv: &DepNode| drv.size % 8 == 0; // third of the drvs
-
+        let filter_drv = |drv: &DepNode| {
+            let log = (drv.size as f64).log2();
+            log.round() as u64 % 3 == 0 // third of the drvs
+        };
         for _ in 0..50 {
-            let old = generate_random(62, 1);
+            let old = generate_random(62, 1, true);
             let mut new = keep(old.clone(), &filter_drv);
             println!(
                 "OLD:\n{:?}\nNew:\n{:?}",
