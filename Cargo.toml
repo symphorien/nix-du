@@ -21,7 +21,7 @@ memchr = "2"
 humansize = "1"
 # input
 human-size = "0.3"
-palette = "0.2"
+palette = "0.4"
 walkdir = "2"
 enum-map = "0.4"
 

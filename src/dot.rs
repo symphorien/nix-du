@@ -8,7 +8,7 @@ use std;
 use depgraph;
 use std::io::{self, Write};
 use petgraph::visit::IntoNodeReferences;
-use self::palette::{Hsv, Rgb};
+use self::palette::{Hsv, Srgb, FromColor};
 use self::humansize::FileSize;
 
 pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Result<()> {
@@ -29,10 +29,11 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
             palette::named::GREENYELLOW,
             palette::named::GOLD,
             palette::named::RED,
-        ].iter()
+        ].into_iter()
             .map(|x| {
-                let color: Rgb = palette::pixel::Srgb::from_pixel(x).into();
-                Hsv::from(color)
+                // into_format() converts from u8 to f32
+                // into_linear() converts color space
+                Hsv::from_rgb(x.into_format().into_linear())
             })
             .collect::<Vec<Hsv>>(),
     );
@@ -61,7 +62,7 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
         } else {
             "#ffffff"
         };
-        let (r, g, b): (u8, u8, u8) = Rgb::from(color).to_pixel();
+        let (r, g, b): (u8, u8, u8) = Srgb::from(color).into_format().into_components();
         write!(
             w,
             "N{}[color=\"#{:02X}{:02X}{:02X}\",fontcolor=\"{}\",label=\"",
