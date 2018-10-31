@@ -132,8 +132,9 @@ Now, nix weighs less (because it shares its dependencies with the rest of my pro
 and you see that `nix-du` only weighs a few megabytes if you don't count that it
 depends on nix.
 
-##### Caveat
-Note, however, that when passed `--root`, `nix-du` will ignore everything not in the
+## Caveats
+### `--root` and external referrers
+Note that when passed `--root`, `nix-du` will ignore everything not in the
 transitive closure of the specified store path. This can lead to surprising behavior.
 Example: if you have such a NixOS configuration:
 ```nix
@@ -152,7 +153,6 @@ your `systemPackages`, delete the old generation, and don't free 123 MB. This is
 because something else (here the unit file `sshd.service`) also depends on `openssh`,
 preventing its removal, but was completely ignored by `nix-du`.
 
-## Caveats
 ### Store optimisation
 If you use store optimisation (see the documentation of `nix-store --optimise`) then
 identical files in unrelated store paths are deduplicated and replaced by a hard link
