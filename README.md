@@ -160,10 +160,11 @@ to save space. To report accurate sizes, `nix-du` needs to scan your whole store
 for deduplicated files, which takes quite a long time (especially on rotating drives).
 (This is also the reason why `nix-collect-garbage` takes so long, by the way).
 
-Therefore, by default, `nix-du` will only look for deduplicated files among live paths
-(option `-O1`). You can get a fully precise report with `-O2` or opt out deduplicated
-files detection with `-O0`. In the last case, a deduplicated will be counted twice if it
-appears in two store paths, and sizes will be over estimated.
+Therefore, by default, `nix-du` will only look for deduplicated files among
+live paths (option `-O1`). You can get a fully precise report with `-O2` or opt
+out deduplicated files detection with `-O0`. In the last case, a deduplicated
+file will be counted twice if it appears in two store paths, and sizes will be
+over estimated.
 
 ## FAQ
 ### What is _really_ this graph ?
