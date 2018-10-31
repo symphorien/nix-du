@@ -1,3 +1,7 @@
+master:
+
+* add --root option to reduce the scope of the analysis to the transitive closure of a store path
+
 v0.2.0:
 
 * add -O option to take store optimisation into account
