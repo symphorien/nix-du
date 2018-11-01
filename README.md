@@ -196,3 +196,11 @@ transitive closure of the root. See an example above in the section about `--roo
 ### I asked for 60 nodes with `-n 60` but I got 120!
 When you apply a filter with `-n` or `-s` all roots which have a (transitive) child kept by the filter are kept as well.
 Remaining roots are merged in the `{filtered out}` node.
+
+### What is the `{transient}` node ?
+
+This is a node coalescing all memory and temporary roots, in nix parlance. A
+memory root represents a process which has mmap-ed a store path, and a transient root
+is a root crated by the nix build machinery to the dependencies of a currently
+running build.  TL;DR: this node denotes live stuff depending on the store but
+which will disappear after a reboot.
