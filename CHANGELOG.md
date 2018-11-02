@@ -1,4 +1,4 @@
-master:
+v0.3.0:
 
 * add --root option to reduce the scope of the analysis to the transitive closure of a store path
 
