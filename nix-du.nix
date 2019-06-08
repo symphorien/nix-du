@@ -1,6 +1,6 @@
 { stdenv, fetchFromGitHub, writeTextFile,
 rustPlatform, nix, boost, 
-clangStdenv, clang, llvmPackages,
+clang_6,
 graphviz, darwin,
 cargoSha256 ? "0sva4lnhccm6ly7pa6m99s3fqkmh1dzv7r2727nsg2f55prd4kxc",
 source ?
@@ -36,7 +36,8 @@ rustPlatform.buildRustPackage rec {
 
   doCheck = true;
   checkInputs = [ graphviz ];
-  nativeBuildInputs = [] ++ stdenv.lib.optionals doCheck checkInputs;
+  # nix 2.2 uses std::experimental::optional which is removed in clang7
+  nativeBuildInputs = stdenv.lib.optional stdenv.cc.isClang [ clang_6 ];
 
   buildInputs = [
     boost
