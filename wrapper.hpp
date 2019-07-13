@@ -14,6 +14,22 @@
 #include <nix/local-store.hh>
 #include <nix/remote-store.hh>
 
+// In nix 2.3, Roots is a map from a string to a set of string instead of a map of string to string
+#ifndef ROOTS_ARE_MAP_TO_SET
+#define ROOTS_ARE_MAP_TO_SET 0
+#endif
+
+// In nix 2.3, store->findRoots gained a new argument, censor
+#ifndef FINDROOTS_HAS_CENSOR
+#define FINDROOTS_HAS_CENSOR 0
+#endif
+
+#if FINDROOTS_HAS_CENSOR
+#define findroots(store) store->findRoots(false)
+#else
+#define findroots(store) store->findRoots()
+#endif
+
 extern "C" {
   typedef struct {
     const char* path;
@@ -83,9 +99,14 @@ extern "C" {
 
       if (!rootPath) {
         unsigned index = node_to_id.size();
-        for (auto root : store->findRoots()) {
+#if ROOTS_ARE_MAP_TO_SET
+        for (auto &[storepath, links] : findroots(store)) {
+        for (auto link: links) {
+#else
+        for (auto root : findroots(store)) {{
           Path link, storepath;
           std::tie(link, storepath) = root;
+#endif
           if (store->isValidPath(storepath)) {
             path_t entry;
             entry.is_root = 1;
@@ -96,6 +117,7 @@ extern "C" {
             register_edge(graph, index, to.index);
             ++index;
           }
+        }
         }
       }
     });
