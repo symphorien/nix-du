@@ -6,6 +6,7 @@ use msg::*;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::io::Result;
+use std::cell::Cell;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::iter::once;
@@ -82,17 +83,19 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
                             let name = di.graph[idx].name().into_owned();
                             let new_node = di.graph.add_node(DepNode {
                                 description: NodeDescription::Shared(name),
-                                size: metadata.len(),
+                                size: Cell::new(metadata.len()),
                             });
                             di.graph.add_edge(n, new_node, ());
-                            di.graph[n].size -= metadata.len();
+                            let new_w = &di.graph[n];
+                            new_w.size.set(new_w.size.get() - metadata.len());
                             *v = Owner::Several(new_node);
                             new_node
                         }
                         Owner::Several(n) => n,
                     };
                     di.graph.add_edge(idx, new_node, ());
-                    di.graph[idx].size -= metadata.len();
+                    let w = &di.graph[idx];
+                    w.size.set(w.size.get() - metadata.len());
                 }
             }
         }

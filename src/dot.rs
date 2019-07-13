@@ -14,14 +14,15 @@ use self::humansize::FileSize;
 pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Result<()> {
     // compute color gradient
     // first, min and max
-    let mut min = dependencies.graph.raw_nodes()[0].weight.size;
+    let mut min = dependencies.graph.raw_nodes()[0].weight.size.get();
     let mut max = min;
     for node in &dependencies.graph.raw_nodes()[1..] {
-        max = std::cmp::max(node.weight.size, max);
-        min = std::cmp::min(node.weight.size, min);
+        max = std::cmp::max(node.weight.size.get(), max);
+        min = std::cmp::min(node.weight.size.get(), min);
     }
+    let span = (max - min) as f64;
 
-    let scale = move |size| (((size - min) as f64) / ((max - min) as f64)) as f32;
+    let scale = move |size| (((size - min) as f64) / span) as f32;
 
     let gradient = palette::gradient::Gradient::new(
         vec![
@@ -53,10 +54,10 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
         if idx == dependencies.root {
             continue;
         };
-        let size = node.size
+        let size = node.size.get()
             .file_size(humansize::file_size_opts::BINARY)
             .unwrap();
-        let color: Hsv = gradient.get(scale(node.size));
+        let color: Hsv = gradient.get(scale(node.size.get()));
         let textcolor = if color.value > 0.8 {
             "#000000"
         } else {

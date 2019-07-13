@@ -10,6 +10,7 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::ffi::OsStringExt;
 use std::os::raw::c_void;
 use std::borrow::Cow;
+use std::cell::Cell;
 use std::fmt;
 #[cfg(test)]
 use std::collections;
@@ -158,7 +159,7 @@ impl fmt::Debug for NodeDescription {
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DepNode {
     pub description: NodeDescription,
-    pub size: u64,
+    pub size: Cell<u64>,
 }
 
 impl DepNode {
@@ -182,14 +183,14 @@ impl DepNode {
         }
         Self {
             description,
-            size: p.size,
+            size: Cell::new(p.size),
         }
     }
 
     pub fn dummy() -> Self {
         DepNode {
             description: NodeDescription::Dummy,
-            size: 0,
+            size: Cell::new(0),
         }
     }
 
@@ -208,7 +209,7 @@ impl fmt::Debug for DepNode {
             f,
             "N({:?}, size={})",
             self.description,
-            self.size
+            self.size.get()
         )
     }
 }
@@ -320,14 +321,14 @@ impl DepInfos {
         let mut dfs = self.dfs();
         let mut sum = 0;
         while let Some(idx) = dfs.next(&self.graph) {
-            sum += self.graph[idx].size;
+            sum += self.graph[idx].size.get();
         }
         sum
     }
 
     /// returns the sum of the size of all the derivations
     pub fn size(&self) -> u64 {
-        self.graph.raw_nodes().iter().map(|n| n.weight.size).sum()
+        self.graph.raw_nodes().iter().map(|n| n.weight.size.get()).sum()
     }
 
     /// records the current size of the graph in its metadata field.

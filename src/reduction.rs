@@ -6,6 +6,7 @@ extern crate petgraph;
 
 use std;
 use std::collections;
+use std::cell::Cell;
 
 use petgraph::visit::EdgeRef;
 
@@ -25,7 +26,7 @@ pub fn merge_transient_roots(mut di: DepInfos) -> DepInfos {
         return di;
     }
 
-    let fake_root_idx = di.graph.add_node(DepNode { description: NodeDescription::Transient, size: 0 });
+    let fake_root_idx = di.graph.add_node(DepNode { description: NodeDescription::Transient, size: Cell::new(0) });
     di.graph.add_edge(di.root, fake_root_idx, ());
     for idx in targets {
         let edx = di.graph.find_edge(di.root, idx).unwrap();
@@ -81,7 +82,8 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
             std::mem::swap(&mut w, &mut di.graph[idx]);
             new_graph.add_node(w)
         });
-        new_graph[*new_node].size += di.graph[idx].size;
+        let new_w = &new_graph[*new_node];
+        new_w.size.set(new_w.size.get() + di.graph[idx].size.get());
     }
 
     let new_root = new_ids[&g[di.root]];
@@ -221,11 +223,8 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
                 let wup: &mut DepNode = ondemand_weights.get_mut(&old).unwrap_or_else(|| {
                     &mut new_graph[old_id.unwrap_or_else(|| new_ids[&old])]
                 });
-                wup.size += frozen[idx].size;
-                unsafe {
-                    let w: *mut DepNode = &frozen[idx] as *const _ as *mut _;
-                    (*w).size = 0;
-                }
+                wup.size.set(wup.size.get()+frozen[idx].size.get());
+                frozen[idx].size.set(0);
             }
         }
         }
@@ -243,11 +242,11 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
         }
     }
     // to keep the size unchanged, we create a dummy root with the remaining size
-    let remaining_size = ondemand_weights.values().map(|drv| drv.size).sum();
+    let remaining_size = ondemand_weights.values().map(|drv| drv.size.get()).sum();
     if remaining_size > 0 {
         let fake_root = DepNode {
             description: NodeDescription::FilteredOut,
-            size: remaining_size,
+            size: Cell::new(remaining_size),
         };
         let id =  new_graph.add_node(fake_root);
         new_graph.add_edge(new_root, id, ());
@@ -337,7 +336,7 @@ mod tests {
             };
             let w = DepNode {
                 description,
-                size,
+                size: Cell::new(size),
             };
             g.add_node(w);
         }
@@ -353,7 +352,7 @@ mod tests {
             dedup: DedupAwareness::Unaware,
             size: enum_map!{ _ => enum_map!{ _ => None }},
         };
-        let root = g.add_node(if rooted { DepNode { description: Path("root".into()), size: 42 } } else { DepNode::dummy() });
+        let root = g.add_node(if rooted { DepNode { description: Path("root".into()), size: Cell::new(42) } } else { DepNode::dummy() });
         for idx in g.externals(petgraph::Direction::Incoming).collect::<Vec<_>>() {
             if !rooted && rng.gen() {
                 if g[idx].kind() == NodeKind::Path {
@@ -391,7 +390,7 @@ mod tests {
     }
     fn size_to_old_nodes(drv: &DepNode) -> collections::BTreeSet<NodeIndex> {
         (0..62)
-            .filter(|i| drv.size & (1u64 << i) != 0)
+            .filter(|i| drv.size.get() & (1u64 << i) != 0)
             .map(NodeIndex::from)
             .collect()
     }
@@ -587,7 +586,7 @@ mod tests {
     #[test]
     fn check_keep() {
         let filter_drv = |drv: &DepNode| {
-            let log = (drv.size as f64).log2();
+            let log = (drv.size.get() as f64).log2();
             log.round() as u64 % 3 == 0 // third of the drvs
         };
         for _ in 0..50 {
@@ -665,7 +664,7 @@ mod tests {
                     continue;
                 }
                 let top = NodeIndex::from(path_to_old_size(drv));
-                assert!(drv.size & (1u64 << top.index()) != 0);
+                assert!(drv.size.get() & (1u64 << top.index()) != 0);
                 for child in size_to_old_nodes(drv) {
                     assert!(
                         petgraph::algo::has_path_connecting(&filtered, top, child, Some(&mut space)),

@@ -259,7 +259,7 @@ or with a user wide profile:
     g = reduction::condense(g);
 
     if n_nodes > 0 && n_nodes < g.graph.node_count() {
-        let mut sizes: Vec<u64> = g.graph.raw_nodes().iter().map(|n| n.weight.size).collect();
+        let mut sizes: Vec<u64> = g.graph.raw_nodes().iter().map(|n| n.weight.size.get()).collect();
         sizes.sort_unstable();
         min_size = sizes[sizes.len().saturating_sub(n_nodes)];
     }
@@ -269,7 +269,7 @@ or with a user wide profile:
      *******************/
 
     if min_size > 0 {
-        g = reduction::keep(g, |d: &depgraph::DepNode| d.size >= min_size);
+        g = reduction::keep(g, |d: &depgraph::DepNode| d.size.get() >= min_size);
     }
     msg!(
         "{} nodes, {} edges.\n",
