@@ -6,15 +6,9 @@
 */
 #include <sstream>
 
-/* the SYSTEM global is normally set by ./configure when compiling nix;
- * define it.
- */
-#ifndef SYSTEM
-#define SYSTEM "dummy"
-#endif
-
 #include <iostream>
 #include <unordered_map>
+#include <nix/config.h> // #define SYSTEM
 #include <nix/util.hh> // restoreSignals
 #include <nix/shared.hh> // initNix
 #include <nix/local-store.hh>
