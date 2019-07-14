@@ -2,7 +2,7 @@
 rustPlatform, nix, boost, 
 clangStdenv, clang, llvmPackages,
 graphviz, darwin,
-cargoSha256 ? "0sva4lnhccm6ly7pa6m99s3fqkmh1dzv7r2727nsg2f55prd4kxc",
+cargoSha256 ? "0kpzxmch9yi9sln82x32lplnr78cvdw1hinl7xc164ll5vc80yws",
 source ?
   with stdenv.lib.sources;
   let filter = name: type:
