@@ -23,13 +23,13 @@ humansize = "1"
 human-size = "0.4"
 palette = "0.4"
 walkdir = "2"
-enum-map = "0.5"
+enum-map = "0.4"
 
 [dependencies.clap]
 version = "2"
 features = ["suggestions", "color", "wrap_help"]
 
 [dev-dependencies]
-rand = "0.7"
+rand = "0.5"
 cli_test_dir = "0.1"
 regex = "1"
