@@ -171,10 +171,16 @@ impl DepNode {
         if path[0] == b'/' {
             if p.is_root != 0 {
                 description = Link(path);
+            } else if path.starts_with(b"/proc/") {
+                description = Memory(path);
             } else {
                 description = Path(path);
             }
-        } else if path.starts_with(b"{memory:") {
+        } else if path.starts_with(b"{memory:") || path == b"{lsof}" || path == b"{censored}" {
+            // {memory} is nix < 2.2 and was replaced by paths in /proc for linux and {lsof} for darwin in nix 2.3.
+            // See https://github.com/NixOS/nix/commit/a3f37d87eabcfb5dc581abcfa46e5e7d387dfa8c
+            // {censored} was introduced in nix 2.3:
+            // https://github.com/NixOS/nix/commit/53522cb6ac19bd1da35a657988231cce9387be9c
             description = Memory(path);
         } else if path.starts_with(b"{temp:") {
             description = Temporary(path);
