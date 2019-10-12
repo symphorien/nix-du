@@ -1,12 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0
 
-extern crate humansize;
-extern crate palette;
-extern crate petgraph;
-
-use self::humansize::FileSize;
-use self::palette::{FromColor, Hsv, Srgb};
-use depgraph;
+use crate::depgraph;
+use humansize::FileSize;
+use palette::{FromColor, Hsv, Srgb};
 use petgraph::visit::IntoNodeReferences;
 use std;
 use std::io::{self, Write};

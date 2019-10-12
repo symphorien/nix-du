@@ -1,7 +1,4 @@
-extern crate cli_test_dir;
-extern crate petgraph;
-extern crate regex;
-extern crate human_size;
+// SPDX-License-Identifier: LGPL-3.0
 
 use std::process::Command;
 use cli_test_dir::TestDir;

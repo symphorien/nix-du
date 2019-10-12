@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: LGPL-3.0
 
-extern crate cc;
-
 fn main() {
     // this build script only depends on the wrapper
     println!("cargo:rerun-if-changed=wrapper.hpp");

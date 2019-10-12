@@ -1,9 +1,6 @@
-extern crate walkdir;
+use crate::depgraph::*;
+use crate::msg::*;
 
-use depgraph::*;
-use msg::*;
-
-use self::walkdir::{DirEntryExt, WalkDir};
 use petgraph::prelude::NodeIndex;
 use std::cell::Cell;
 use std::collections::btree_map::Entry;
@@ -13,6 +10,7 @@ use std::io::Result;
 use std::iter::once;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Path, PathBuf};
+use walkdir::{DirEntryExt, WalkDir};
 
 enum Owner {
     One(NodeIndex),

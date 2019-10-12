@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0
 
-extern crate fixedbitset;
-extern crate memchr;
-extern crate petgraph;
-
-use bindings;
+use crate::bindings;
+use enum_map::{enum_map, Enum};
 use std;
 use std::borrow::Cow;
 use std::cell::Cell;

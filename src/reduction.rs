@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: LGPL-3.0
 
-extern crate fixedbitset;
-extern crate memchr;
-extern crate petgraph;
-
 use std;
 use std::cell::Cell;
 use std::collections;
 
 use petgraph::visit::EdgeRef;
 
-use depgraph::*;
+use crate::depgraph::*;
 
 /// Merges all the in memory roots in one root
 /// noop is no in memory root is present
@@ -270,16 +266,15 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
 
 #[cfg(test)]
 mod tests {
-    extern crate petgraph;
-    extern crate rand;
-    use self::rand::distributions::WeightedIndex;
-    use self::rand::Rng;
-    use self::rand::prelude::*;
-    use depgraph::*;
+    use crate::depgraph::*;
+    use crate::reduction::*;
+    use enum_map::enum_map;
     use petgraph::prelude::NodeIndex;
     use petgraph::visit::IntoNodeReferences;
     use petgraph::visit::NodeRef;
-    use reduction::*;
+    use rand::distributions::WeightedIndex;
+    use rand::prelude::*;
+    use rand::Rng;
     use std::collections::{self, BTreeMap, BTreeSet};
 
     /// asserts that `transform` preserves

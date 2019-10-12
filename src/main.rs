@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0
 
-#[macro_use]
-extern crate clap;
-#[macro_use]
-extern crate enum_map;
-extern crate human_size;
-extern crate humansize;
-extern crate petgraph;
+use enum_map::enum_map;
 
 #[macro_use]
 pub mod msg;
@@ -15,15 +9,15 @@ pub mod depgraph;
 pub mod dot;
 pub mod opt;
 pub mod reduction;
+use crate::msg::*;
 use human_size::{Byte, Size};
 use humansize::FileSize;
-use msg::*;
 use std::ffi::OsString;
 use std::io;
 use std::path::PathBuf;
 
 /* so that these functions are available in libnix_adepter.a */
-pub use depgraph::{register_edge, register_node};
+pub use crate::depgraph::{register_edge, register_node};
 
 #[derive(Debug, Eq, PartialEq)]
 enum StatOpts {
@@ -34,8 +28,8 @@ enum StatOpts {
 type OptLevel = Option<StatOpts>;
 
 fn print_stats<W: io::Write>(w: &mut W, g: &depgraph::DepInfos) -> io::Result<()> {
-    use depgraph::DedupAwareness::*;
-    use depgraph::Reachability::*;
+    use crate::depgraph::DedupAwareness::*;
+    use crate::depgraph::Reachability::*;
     let to_human_readable = |size: u64| {
         size.file_size(humansize::file_size_opts::BINARY)
             .unwrap_or("nan".to_owned())
@@ -114,7 +108,7 @@ or with a user wide profile:
 `nix-du -r ~/.nix-profile -s 500MB | tred`
 ",
         )
-        .version(crate_version!())
+        .version(clap::crate_version!())
         .arg(
             clap::Arg::with_name("min-size")
                 .short("s")
