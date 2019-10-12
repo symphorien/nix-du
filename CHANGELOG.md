@@ -1,3 +1,7 @@
+v0.3.1:
+
+* support for nix 2.3
+
 v0.3.0:
 
 * add --root option to reduce the scope of the analysis to the transitive closure of a store path
