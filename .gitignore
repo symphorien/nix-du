@@ -2,6 +2,6 @@
 **/*.rs.bk
 core
 *.swp
-/result
+/result*
 /tags
 /TODO
