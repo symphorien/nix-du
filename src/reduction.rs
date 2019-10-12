@@ -272,8 +272,9 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
 mod tests {
     extern crate petgraph;
     extern crate rand;
-    use self::rand::distributions::{Distribution, Weighted, WeightedChoice};
+    use self::rand::distributions::WeightedIndex;
     use self::rand::Rng;
+    use self::rand::prelude::*;
     use depgraph::*;
     use petgraph::prelude::NodeIndex;
     use petgraph::visit::IntoNodeReferences;
@@ -320,17 +321,9 @@ mod tests {
     fn generate_random(size: u32, avg_degree: u32, connected: bool) -> DepInfos {
         use self::NodeDescription::*;
         assert!(avg_degree <= size - 1);
-        let mut items = vec![
-            Weighted {
-                weight: avg_degree,
-                item: true,
-            },
-            Weighted {
-                weight: size - 1 - avg_degree,
-                item: false,
-            },
-        ];
-        let wc = WeightedChoice::new(&mut items);
+        let choices = &[true, false];
+        let weights = &[avg_degree, size - 1 - avg_degree];
+        let wc = WeightedIndex::new(weights).unwrap();
         let mut rng = rand::thread_rng();
         let mut g: DepGraph = petgraph::graph::Graph::new();
         let rooted = rng.gen();
@@ -358,7 +351,7 @@ mod tests {
         }
         for i in 0..size {
             for j in (i + 1)..size {
-                if wc.sample(&mut rng) && !g[NodeIndex::from(j)].kind().is_gc_root() {
+                if choices[wc.sample(&mut rng)] && !g[NodeIndex::from(j)].kind().is_gc_root() {
                     g.add_edge(NodeIndex::from(i), NodeIndex::from(j), ());
                 }
             }
@@ -409,7 +402,7 @@ mod tests {
         // there may be edges from root to root
         for i in di.roots().collect::<Vec<_>>() {
             for j in di.roots().collect::<Vec<_>>() {
-                if j > i && wc.sample(&mut rng) {
+                if j > i && choices[wc.sample(&mut rng)] {
                     di.graph.add_edge(i, j, ());
                 }
             }
