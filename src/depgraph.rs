@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: LGPL-3.0
 
+extern crate fixedbitset;
 extern crate memchr;
 extern crate petgraph;
-extern crate fixedbitset;
 
-use std::vec::Vec;
-use std::ffi::{CStr, OsStr, OsString};
-use std::os::unix::ffi::OsStrExt;
-use std::os::unix::ffi::OsStringExt;
-use std::os::raw::c_void;
+use bindings;
+use std;
 use std::borrow::Cow;
 use std::cell::Cell;
-use std::fmt;
 #[cfg(test)]
 use std::collections;
-use std;
-use bindings;
+use std::ffi::{CStr, OsStr, OsString};
+use std::fmt;
+use std::os::raw::c_void;
+use std::os::unix::ffi::OsStrExt;
+use std::os::unix::ffi::OsStringExt;
+use std::vec::Vec;
 
 use petgraph::prelude::NodeIndex;
-use petgraph::visit::IntoNodeReferences;
 use petgraph::visit::Dfs;
+use petgraph::visit::IntoNodeReferences;
 
 use enum_map::EnumMap;
 
@@ -98,17 +98,17 @@ impl NodeDescription {
                     }
                 };
                 Cow::Borrowed(inner)
-            },
+            }
             Link(path) | Memory(path) | Temporary(path) => Cow::Borrowed(&path),
             Dummy => Cow::Borrowed(b"{dummy}"),
             FilteredOut => Cow::Borrowed(b"{filtered out}"),
             Transient => Cow::Borrowed(b"{transient}"),
             Shared(name) => {
-                let mut res = Vec::with_capacity(SHARED_PREFIX.len()+name.len());
+                let mut res = Vec::with_capacity(SHARED_PREFIX.len() + name.len());
                 res.extend(SHARED_PREFIX);
                 res.extend(name);
-                Cow::Owned(res)}
-            ,
+                Cow::Owned(res)
+            }
         }
     }
 
@@ -117,16 +117,16 @@ impl NodeDescription {
         use self::NodeDescription::*;
         match self {
             Link(path) | Path(path) => Some(OsStr::from_bytes(path)),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn path(&self) -> Option<&Path> {
         use self::NodeDescription::*;
         match self {
-            Link(path) | Path(path) | Memory(path) | Temporary(path) =>  Some(&path),
+            Link(path) | Path(path) | Memory(path) | Temporary(path) => Some(&path),
             Shared(name) => Some(&name),
-            Transient | Dummy | FilteredOut => None
+            Transient | Dummy | FilteredOut => None,
         }
     }
 
@@ -185,7 +185,10 @@ impl DepNode {
         } else if path.starts_with(b"{temp:") {
             description = Temporary(path);
         } else {
-            panic!("Unknown store path type: {}", String::from_utf8_lossy(&path));
+            panic!(
+                "Unknown store path type: {}",
+                String::from_utf8_lossy(&path)
+            );
         }
         Self {
             description,
@@ -211,15 +214,9 @@ impl DepNode {
 
 impl fmt::Debug for DepNode {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "N({:?}, size={})",
-            self.description,
-            self.size.get()
-        )
+        write!(f, "N({:?}, size={})", self.description, self.size.get())
     }
 }
-
 
 /// Whether all nodes are reachable from the root
 #[derive(Enum, Debug, Clone, Copy, PartialEq, Eq)]
@@ -239,9 +236,8 @@ pub enum DedupAwareness {
 pub struct SizeMetadata {
     pub reachable: Reachability,
     pub dedup: DedupAwareness,
-    pub size: EnumMap<DedupAwareness, EnumMap<Reachability, Option<u64>>>
+    pub size: EnumMap<DedupAwareness, EnumMap<Reachability, Option<u64>>>,
 }
-
 
 pub type Edge = ();
 
@@ -287,7 +283,7 @@ impl DepInfos {
         });
         let rootptr: *const u8 = match root_data.as_ref() {
             None => std::ptr::null(),
-            Some(path) => path.as_ptr()
+            Some(path) => path.as_ptr(),
         };
         let res = unsafe { bindings::populateGraph(gptr, rootptr as *const std::os::raw::c_char) };
 
@@ -296,7 +292,7 @@ impl DepInfos {
         }
         let root_idx = match &root_data {
             None => g.add_node(DepNode::dummy()),
-            Some(_) => NodeIndex::from(0)
+            Some(_) => NodeIndex::from(0),
         };
         let reachable = match &root_data {
             None => Reachability::Disconnected,
@@ -305,7 +301,7 @@ impl DepInfos {
         let metadata = SizeMetadata {
             reachable,
             dedup: DedupAwareness::Unaware,
-            size: enum_map!{ _ => enum_map!{ _ => None }},
+            size: enum_map! { _ => enum_map!{ _ => None }},
         };
         let mut di = DepInfos {
             root: root_idx,
@@ -313,7 +309,17 @@ impl DepInfos {
             metadata,
         };
         if root_data.is_none() {
-            let gc_roots: Vec<_> = di.graph.node_references().filter_map(|(idx, n)| if n.kind().is_gc_root() { Some(idx) } else {None}).collect();
+            let gc_roots: Vec<_> = di
+                .graph
+                .node_references()
+                .filter_map(|(idx, n)| {
+                    if n.kind().is_gc_root() {
+                        Some(idx)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             for root in gc_roots {
                 di.graph.add_edge(di.root, root, ());
             }
@@ -334,21 +340,30 @@ impl DepInfos {
 
     /// returns the sum of the size of all the derivations
     pub fn size(&self) -> u64 {
-        self.graph.raw_nodes().iter().map(|n| n.weight.size.get()).sum()
+        self.graph
+            .raw_nodes()
+            .iter()
+            .map(|n| n.weight.size.get())
+            .sum()
     }
 
     /// records the current size of the graph in its metadata field.
     pub fn record_metadata(&mut self) {
         let dedup = self.metadata.dedup;
-        macro_rules! entry { () => {self.metadata.size[dedup]} };
+        macro_rules! entry {
+            () => {
+                self.metadata.size[dedup]
+            };
+        };
         if entry!()[Reachability::Connected].is_none() {
             entry!()[Reachability::Connected] = Some(self.reachable_size());
         }
-        if self.metadata.reachable == Reachability::Disconnected && entry!()[Reachability::Disconnected].is_none() {
+        if self.metadata.reachable == Reachability::Disconnected
+            && entry!()[Reachability::Disconnected].is_none()
+        {
             entry!()[Reachability::Disconnected] = Some(self.size());
         }
     }
-
 
     /// returns a Dfs suitable to visit all reachable nodes.
     pub fn dfs(&self) -> Dfs<NodeIndex, fixedbitset::FixedBitSet> {
@@ -360,13 +375,15 @@ impl DepInfos {
         self.graph.neighbors(self.root)
     }
 
-
     /// returns the set of paths of the roots
     /// intended for testing mainly
     #[cfg(test)]
     pub fn roots_name(&self) -> collections::BTreeSet<String> {
         self.roots()
-            .map(|idx| { assert_ne!(idx, self.root); String::from_utf8_lossy(&self.graph[idx].name()).into() })
+            .map(|idx| {
+                assert_ne!(idx, self.root);
+                String::from_utf8_lossy(&self.graph[idx].name()).into()
+            })
             .collect()
     }
 

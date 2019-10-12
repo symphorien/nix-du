@@ -15,9 +15,9 @@ pub fn set_quiet(x: bool) {
 macro_rules! noisy {
     ($x:block) => {
         if !(quiet()) {
-           $x
+            $x
         }
-    }
+    };
 }
 
 /// like `eprint!` but only if `-q` has not been specified.

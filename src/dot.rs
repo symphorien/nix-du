@@ -4,12 +4,12 @@ extern crate humansize;
 extern crate palette;
 extern crate petgraph;
 
-use std;
-use depgraph;
-use std::io::{self, Write};
-use petgraph::visit::IntoNodeReferences;
-use self::palette::{Hsv, Srgb, FromColor};
 use self::humansize::FileSize;
+use self::palette::{FromColor, Hsv, Srgb};
+use depgraph;
+use petgraph::visit::IntoNodeReferences;
+use std;
+use std::io::{self, Write};
 
 pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Result<()> {
     // compute color gradient
@@ -30,20 +30,19 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
             palette::named::GREENYELLOW,
             palette::named::GOLD,
             palette::named::RED,
-        ].into_iter()
-            .map(|x| {
-                // into_format() converts from u8 to f32
-                // into_linear() converts color space
-                Hsv::from_rgb(x.into_format().into_linear())
-            })
-            .collect::<Vec<Hsv>>(),
+        ]
+        .into_iter()
+        .map(|x| {
+            // into_format() converts from u8 to f32
+            // into_linear() converts color space
+            Hsv::from_rgb(x.into_format().into_linear())
+        })
+        .collect::<Vec<Hsv>>(),
     );
 
     w.write_all(b"digraph nixstore {\n")?;
     w.write_all(b"rankdir=LR;\n")?;
-    w.write_all(
-        b"node [shape = tripleoctagon, style=filled];\n",
-    )?;
+    w.write_all(b"node [shape = tripleoctagon, style=filled];\n")?;
     w.write_all(b"{ rank = same;\n")?;
     for idx in dependencies.roots() {
         write!(w, "N{}; ", idx.index())?;
@@ -54,7 +53,9 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
         if idx == dependencies.root {
             continue;
         };
-        let size = node.size.get()
+        let size = node
+            .size
+            .get()
             .file_size(humansize::file_size_opts::BINARY)
             .unwrap();
         let color: Hsv = gradient.get(scale(node.size.get()));

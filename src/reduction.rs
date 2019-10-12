@@ -5,8 +5,8 @@ extern crate memchr;
 extern crate petgraph;
 
 use std;
-use std::collections;
 use std::cell::Cell;
+use std::collections;
 
 use petgraph::visit::EdgeRef;
 
@@ -21,12 +21,18 @@ pub fn merge_transient_roots(mut di: DepInfos) -> DepInfos {
         return di;
     }
 
-    let targets: Vec<_> = di.roots().filter(|&idx| di.graph[idx].kind().is_transient()).collect();
+    let targets: Vec<_> = di
+        .roots()
+        .filter(|&idx| di.graph[idx].kind().is_transient())
+        .collect();
     if targets.is_empty() {
         return di;
     }
 
-    let fake_root_idx = di.graph.add_node(DepNode { description: NodeDescription::Transient, size: Cell::new(0) });
+    let fake_root_idx = di.graph.add_node(DepNode {
+        description: NodeDescription::Transient,
+        size: Cell::new(0),
+    });
     di.graph.add_edge(di.root, fake_root_idx, ());
     for idx in targets {
         let edx = di.graph.find_edge(di.root, idx).unwrap();
@@ -35,8 +41,6 @@ pub fn merge_transient_roots(mut di: DepInfos) -> DepInfos {
     }
     di
 }
-
-
 
 /// Computes a sort of condensation of the graph.
 ///
@@ -180,58 +184,64 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
     // when we visit a node, we need to know if any of its children will be kept
     // but for ondemand roots, we don"t know yet.
     // Therefore we visit nodes in reverse topological order.
-    let mut toposort = petgraph::algo::toposort(&di.graph, None).expect("keep argument is not acyclic");
-    {// borrow frozen
-    let frozen = petgraph::graph::Frozen::new(&mut di.graph);
-    for old in toposort.drain(..).rev() {
-        if old == di.root || !(new_ids.contains_key(&old) || ondemand_weights.contains_key(&old)) {
-            continue;
-        }
-        // if old is an on demand root, and we need to realise it, then
-        // we cannot add it to new_ids because new_ids is borrowed.
-        // We store the node id here in between.
-        let mut old_id = None;
-        {// borrow of new_ids
-        // this filter visits the graph starting at old
-        // stopping when reaching a kept child
-        let filtered = petgraph::visit::EdgeFiltered::from_fn(&*frozen, |e| {
-            e.source() == old || !new_ids.contains_key(&e.source())
-        });
-        let mut dfs = petgraph::visit::Dfs::new(&filtered, old);
-        let old_ = dfs.next(&filtered); // skip old
-        debug_assert_eq!(Some(old), old_);
-        while let Some(idx) = dfs.next(&filtered) {
-            if let Some(&new2) = new_ids.get(&idx) {
-                // kept child
-                // let's add an edge from old to this child
-                let new = match ondemand_weights.remove(&old) {
-                    Some(new_w) => {
-                        // this is an ondemand root, add it to new_graph
-                        let t = new_graph.add_node(new_w);
-                        // we should do:
-                        // new_ids.insert(old, t);
-                        // but new_ids is borrowed.
-                        old_id = Some(t);
-                        t
-                    }
-                    None => old_id.unwrap_or_else(|| new_ids[&old]),
-                };
-                new_graph.add_edge(new, new2, ());
-            } else {
-                // this child is not kept
-                // absorb its size upstream
-                let wup: &mut DepNode = ondemand_weights.get_mut(&old).unwrap_or_else(|| {
-                    &mut new_graph[old_id.unwrap_or_else(|| new_ids[&old])]
-                });
-                wup.size.set(wup.size.get()+frozen[idx].size.get());
-                frozen[idx].size.set(0);
+    let mut toposort =
+        petgraph::algo::toposort(&di.graph, None).expect("keep argument is not acyclic");
+    {
+        // borrow frozen
+        let frozen = petgraph::graph::Frozen::new(&mut di.graph);
+        for old in toposort.drain(..).rev() {
+            if old == di.root
+                || !(new_ids.contains_key(&old) || ondemand_weights.contains_key(&old))
+            {
+                continue;
             }
+            // if old is an on demand root, and we need to realise it, then
+            // we cannot add it to new_ids because new_ids is borrowed.
+            // We store the node id here in between.
+            let mut old_id = None;
+            {
+                // borrow of new_ids
+                // this filter visits the graph starting at old
+                // stopping when reaching a kept child
+                let filtered = petgraph::visit::EdgeFiltered::from_fn(&*frozen, |e| {
+                    e.source() == old || !new_ids.contains_key(&e.source())
+                });
+                let mut dfs = petgraph::visit::Dfs::new(&filtered, old);
+                let old_ = dfs.next(&filtered); // skip old
+                debug_assert_eq!(Some(old), old_);
+                while let Some(idx) = dfs.next(&filtered) {
+                    if let Some(&new2) = new_ids.get(&idx) {
+                        // kept child
+                        // let's add an edge from old to this child
+                        let new = match ondemand_weights.remove(&old) {
+                            Some(new_w) => {
+                                // this is an ondemand root, add it to new_graph
+                                let t = new_graph.add_node(new_w);
+                                // we should do:
+                                // new_ids.insert(old, t);
+                                // but new_ids is borrowed.
+                                old_id = Some(t);
+                                t
+                            }
+                            None => old_id.unwrap_or_else(|| new_ids[&old]),
+                        };
+                        new_graph.add_edge(new, new2, ());
+                    } else {
+                        // this child is not kept
+                        // absorb its size upstream
+                        let wup: &mut DepNode =
+                            ondemand_weights.get_mut(&old).unwrap_or_else(|| {
+                                &mut new_graph[old_id.unwrap_or_else(|| new_ids[&old])]
+                            });
+                        wup.size.set(wup.size.get() + frozen[idx].size.get());
+                        frozen[idx].size.set(0);
+                    }
+                }
+            }
+            if let Some(id) = old_id {
+                new_ids.insert(old, id);
+            };
         }
-        }
-        if let Some(id) = old_id {
-            new_ids.insert(old, id);
-        };
-    }
     }
     debug_assert_eq!(di.reachable_size(), 0);
     let new_root = new_ids[&di.root];
@@ -248,7 +258,7 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
             description: NodeDescription::FilteredOut,
             size: Cell::new(remaining_size),
         };
-        let id =  new_graph.add_node(fake_root);
+        let id = new_graph.add_node(fake_root);
         new_graph.add_edge(new_root, id, ());
     }
 
@@ -265,11 +275,11 @@ mod tests {
     use self::rand::distributions::{Distribution, Weighted, WeightedChoice};
     use self::rand::Rng;
     use depgraph::*;
-    use reduction::*;
-    use std::collections::{self, BTreeSet, BTreeMap};
     use petgraph::prelude::NodeIndex;
     use petgraph::visit::IntoNodeReferences;
     use petgraph::visit::NodeRef;
+    use reduction::*;
+    use std::collections::{self, BTreeMap, BTreeSet};
 
     /// asserts that `transform` preserves
     /// * the set of roots, by path
@@ -283,7 +293,7 @@ mod tests {
             "OLD:\n{:?}\nNew:\n{:?}",
             petgraph::dot::Dot::new(&orig.graph),
             petgraph::dot::Dot::new(&new.graph)
-            );
+        );
         new.check_metadata();
         if same_roots {
             assert_eq!(new.roots_name(), orig.roots_name());
@@ -291,7 +301,13 @@ mod tests {
         assert_eq!(new.reachable_size(), orig.reachable_size());
         assert_eq!(new.graph[new.root], orig.graph[orig.root]);
         let _ = petgraph::algo::toposort(&new.graph, None).expect("the graph has a cycle");
-        assert_eq!(new.graph.neighbors_directed(new.root, petgraph::prelude::Incoming).count(), 0, "incoming edges to root");
+        assert_eq!(
+            new.graph
+                .neighbors_directed(new.root, petgraph::prelude::Incoming)
+                .count(),
+            0,
+            "incoming edges to root"
+        );
     }
     /// generates a random `DepInfos` where
     /// * all derivations have a distinct path
@@ -350,10 +366,20 @@ mod tests {
         let mut metadata = SizeMetadata {
             reachable: Reachability::Connected,
             dedup: DedupAwareness::Unaware,
-            size: enum_map!{ _ => enum_map!{ _ => None }},
+            size: enum_map! { _ => enum_map!{ _ => None }},
         };
-        let root = g.add_node(if rooted { DepNode { description: Path("root".into()), size: Cell::new(42) } } else { DepNode::dummy() });
-        for idx in g.externals(petgraph::Direction::Incoming).collect::<Vec<_>>() {
+        let root = g.add_node(if rooted {
+            DepNode {
+                description: Path("root".into()),
+                size: Cell::new(42),
+            }
+        } else {
+            DepNode::dummy()
+        });
+        for idx in g
+            .externals(petgraph::Direction::Incoming)
+            .collect::<Vec<_>>()
+        {
             if !rooted && rng.gen() {
                 if g[idx].kind() == NodeKind::Path {
                     let w = &mut g[idx].description;
@@ -375,7 +401,11 @@ mod tests {
                 metadata.reachable = Reachability::Disconnected;
             }
         }
-        let mut di = DepInfos { graph: g, root, metadata };
+        let mut di = DepInfos {
+            graph: g,
+            root,
+            metadata,
+        };
         // there may be edges from root to root
         for i in di.roots().collect::<Vec<_>>() {
             for j in di.roots().collect::<Vec<_>>() {
@@ -432,9 +462,11 @@ mod tests {
         for _ in 0..40 {
             let old = generate_random(250, 10, false);
             let new = merge_transient_roots(old.clone());
-            let has_transient_roots = old.graph.raw_nodes().iter().any(
-                |w| w.weight.kind() == Temporary || w.weight.kind() == Memory
-            );
+            let has_transient_roots = old
+                .graph
+                .raw_nodes()
+                .iter()
+                .any(|w| w.weight.kind() == Temporary || w.weight.kind() == Memory);
             if !has_transient_roots {
                 let fingerprint = |di: &DepInfos| {
                     (
@@ -462,7 +494,10 @@ mod tests {
                 assert_eq!(old_parent, new_parent);
                 assert_eq!(old_child, new_child);
                 let should_disappear = edge.source() == old.root && old_child.kind().is_transient();
-                assert_eq!(new.graph.find_edge(edge.source(), edge.target()).is_none(), should_disappear);
+                assert_eq!(
+                    new.graph.find_edge(edge.source(), edge.target()).is_none(),
+                    should_disappear
+                );
                 if should_disappear {
                     assert!(new.graph.find_edge(edge.source(), fake_root_idx).is_some());
                     assert!(new.graph.find_edge(fake_root_idx, edge.target()).is_some());
@@ -488,13 +523,15 @@ mod tests {
             let mut space = petgraph::algo::DfsSpace::new(&old.graph);
             for (w, &i) in &old_map {
                 let kept = new_map.contains_key(&w);
-                let reachable = petgraph::algo::has_path_connecting(&old.graph, old.root, i, Some(&mut space));
+                let reachable =
+                    petgraph::algo::has_path_connecting(&old.graph, old.root, i, Some(&mut space));
                 assert_eq!(kept, reachable);
             }
             for (w, &i) in &new_map {
                 for (w2, &i2) in &new_map {
                     let is_edge = new.graph.find_edge(i, i2).is_some();
-                    let was_edge = old.graph
+                    let was_edge = old
+                        .graph
                         .find_edge(*(&old_map[&w]), *(&old_map[&w2]))
                         .is_some();
                     assert_eq!(is_edge, was_edge);
@@ -553,11 +590,12 @@ mod tests {
                 // here check edges
                 for (idx2, drv2) in new.graph.node_references() {
                     let targets = size_to_old_nodes(drv2);
-                    let should_exist = idx2 != new.root && idx != idx2 &&
-                        elements.iter().any(|&from| {
-                            targets.iter().any(
-                                |&to| old.graph.find_edge(from, to).is_some(),
-                            )
+                    let should_exist = idx2 != new.root
+                        && idx != idx2
+                        && elements.iter().any(|&from| {
+                            targets
+                                .iter()
+                                .any(|&to| old.graph.find_edge(from, to).is_some())
                         });
                     let exists = new.graph.find_edge(idx, idx2).is_some();
                     assert_eq!(
@@ -571,15 +609,13 @@ mod tests {
                         petgraph::dot::Dot::new(&new.graph)
                     );
                 }
-
             }
             assert_eq!(
-                nodes_image.len()+1,
+                nodes_image.len() + 1,
                 new.graph.node_count(),
                 "two nodes at least have the same equivalence class\nOld\n{:?}\nNew\n{:?}",
-                        petgraph::dot::Dot::new(&old.graph),
-                        petgraph::dot::Dot::new(&new.graph)
-
+                petgraph::dot::Dot::new(&old.graph),
+                petgraph::dot::Dot::new(&new.graph)
             );
         }
     }
@@ -599,30 +635,37 @@ mod tests {
             );
             // compute who we keep
             let old_roots: Vec<_> = old.roots().collect();
-            let real_filter: collections::BTreeMap<NodeIndex, bool> = old.graph.node_references().map(|(n, drv)| {
-                let mut keep = false;
-                if n == old.root {
-                    (n, true)
-                } else if old_roots.contains(&n) {
-                    let mut dfs = petgraph::visit::Dfs::new(&old.graph, n);
-                    while let Some(idx) = dfs.next(&old.graph) {
-                        if filter_drv(&old.graph[idx]) {
-                            keep = true;
-                            break;
-                        }
-                    }
-                    (n, keep)
-                } else {
-                    (n, filter_drv(&drv))
-                }
-            }).collect();
-            // first let's get rid of {filtered out}
-            let fake_roots = new.graph
+            let real_filter: collections::BTreeMap<NodeIndex, bool> = old
+                .graph
                 .node_references()
-                .filter_map(|n| if n.weight().kind() == NodeKind::FilteredOut {
-                    Some(n.id())
-                } else {
-                    None
+                .map(|(n, drv)| {
+                    let mut keep = false;
+                    if n == old.root {
+                        (n, true)
+                    } else if old_roots.contains(&n) {
+                        let mut dfs = petgraph::visit::Dfs::new(&old.graph, n);
+                        while let Some(idx) = dfs.next(&old.graph) {
+                            if filter_drv(&old.graph[idx]) {
+                                keep = true;
+                                break;
+                            }
+                        }
+                        (n, keep)
+                    } else {
+                        (n, filter_drv(&drv))
+                    }
+                })
+                .collect();
+            // first let's get rid of {filtered out}
+            let fake_roots = new
+                .graph
+                .node_references()
+                .filter_map(|n| {
+                    if n.weight().kind() == NodeKind::FilteredOut {
+                        Some(n.id())
+                    } else {
+                        None
+                    }
                 })
                 .collect::<collections::BTreeSet<_>>();
             assert!(fake_roots.len() < 2, "fake_roots={:?}", fake_roots);
@@ -631,9 +674,24 @@ mod tests {
             }
             // nodes:
             //   * roots
-            let old_roots: collections::BTreeSet<_> = old.roots().map(|id| old.graph[id].description.clone()).collect();
-            let new_roots = new.roots().map(|id| new.graph[id].description.clone()).collect();
-            let expected_roots = old.roots().filter_map(|id| if !real_filter[&id] { None } else { Some(old.graph[id].description.clone()) }).collect();
+            let old_roots: collections::BTreeSet<_> = old
+                .roots()
+                .map(|id| old.graph[id].description.clone())
+                .collect();
+            let new_roots = new
+                .roots()
+                .map(|id| new.graph[id].description.clone())
+                .collect();
+            let expected_roots = old
+                .roots()
+                .filter_map(|id| {
+                    if !real_filter[&id] {
+                        None
+                    } else {
+                        Some(old.graph[id].description.clone())
+                    }
+                })
+                .collect();
             assert!(old_roots.is_superset(&new_roots));
             assert!(fake_roots.len() == 1 || new_roots.is_superset(&old_roots));
             assert_eq!(new_roots, expected_roots);
@@ -641,23 +699,21 @@ mod tests {
             let labels = |di: &DepInfos, all| {
                 di.graph
                     .node_references()
-                    .filter_map(|n| if all || real_filter[&n.id()] {
-                        Some(n.weight().description.clone())
-                    } else {
-                        None
+                    .filter_map(|n| {
+                        if all || real_filter[&n.id()] {
+                            Some(n.weight().description.clone())
+                        } else {
+                            None
+                        }
                     })
                     .collect::<collections::BTreeSet<_>>()
             };
             assert_eq!(labels(&old, false), labels(&new, true));
             //  * size
-            let filtered = petgraph::visit::EdgeFiltered::from_fn(
-                &old.graph,
-                |e| !real_filter[&e.target()],
-            );
-            let filtered2 = petgraph::visit::EdgeFiltered::from_fn(
-                &old.graph,
-                |e| !real_filter[&e.source()],
-            );
+            let filtered =
+                petgraph::visit::EdgeFiltered::from_fn(&old.graph, |e| !real_filter[&e.target()]);
+            let filtered2 =
+                petgraph::visit::EdgeFiltered::from_fn(&old.graph, |e| !real_filter[&e.source()]);
             let mut space = petgraph::algo::DfsSpace::new(&filtered);
             for (id, drv) in new.graph.node_references() {
                 if id == new.root {
@@ -667,11 +723,16 @@ mod tests {
                 assert!(drv.size.get() & (1u64 << top.index()) != 0);
                 for child in size_to_old_nodes(drv) {
                     assert!(
-                        petgraph::algo::has_path_connecting(&filtered, top, child, Some(&mut space)),
+                        petgraph::algo::has_path_connecting(
+                            &filtered,
+                            top,
+                            child,
+                            Some(&mut space)
+                        ),
                         "should not have coalesced {:?} and {:?}",
                         top,
                         child
-                        );
+                    );
                 }
                 // also check edges from here
                 for (id2, drv2) in new.graph.node_references() {
@@ -682,20 +743,20 @@ mod tests {
                     let targets = size_to_old_nodes(drv2);
                     let mut path_from_here_to = |targets: collections::BTreeSet<NodeIndex>| {
                         targets.iter().any(|&target| {
-                            old.graph.find_edge(top, target).is_some() ||
-                                old.graph.edges(top).any(|edge| {
+                            old.graph.find_edge(top, target).is_some()
+                                || old.graph.edges(top).any(|edge| {
                                     let intermediate = edge.target();
                                     petgraph::algo::has_path_connecting(
                                         &filtered2,
                                         intermediate,
                                         target,
                                         Some(&mut space),
-                                        )
+                                    )
                                 })
                         })
                     };
-                    let should_exist = id != id2 &&
-                        path_from_here_to([bottom].iter().cloned().collect());
+                    let should_exist =
+                        id != id2 && path_from_here_to([bottom].iter().cloned().collect());
                     let may_exist = id != id2 && path_from_here_to(targets);
                     let exists = new.graph.find_edge(id, id2).is_some();
                     // should => exists /\ exists => may
@@ -706,7 +767,7 @@ mod tests {
                         id2,
                         should_exist,
                         may_exist
-                        );
+                    );
                 }
             }
         }

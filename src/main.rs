@@ -10,20 +10,20 @@ extern crate petgraph;
 
 #[macro_use]
 pub mod msg;
+pub mod bindings;
 pub mod depgraph;
 pub mod dot;
-pub mod reduction;
-pub mod bindings;
 pub mod opt;
+pub mod reduction;
+use human_size::{Byte, Size};
+use humansize::FileSize;
 use msg::*;
+use std::ffi::OsString;
 use std::io;
 use std::path::PathBuf;
-use std::ffi::OsString;
-use human_size::{Size, Byte};
-use humansize::FileSize;
 
 /* so that these functions are available in libnix_adepter.a */
-pub use depgraph::{register_node, register_edge};
+pub use depgraph::{register_edge, register_node};
 
 #[derive(Debug, Eq, PartialEq)]
 enum StatOpts {
@@ -41,7 +41,7 @@ fn print_stats<W: io::Write>(w: &mut W, g: &depgraph::DepInfos) -> io::Result<()
             .unwrap_or("nan".to_owned())
     };
     let size = &g.metadata.size;
-    let best = enum_map!{
+    let best = enum_map! {
         what => size[Aware][what].as_ref().or(size[Unaware][what].as_ref())
     };
     if best[Connected].is_none() && best[Disconnected].is_none() {
@@ -67,7 +67,11 @@ fn print_stats<W: io::Write>(w: &mut W, g: &depgraph::DepInfos) -> io::Result<()
             if size[Aware][what].is_none() {
                 write!(w, " (not taking optimisation into account)")?;
             } else if let Some(unopt) = size[Unaware][what] {
-                write!(w, " ({} saved by optimisation)", to_human_readable(unopt - total))?;
+                write!(
+                    w,
+                    " ({} saved by optimisation)",
+                    to_human_readable(unopt - total)
+                )?;
             }
             write!(w, "\n")?;
         }
@@ -155,30 +159,27 @@ or with a user wide profile:
         .get_matches();
 
     let mut min_size = match matches.value_of("min-size") {
-        Some(min_size_str) => {
-            min_size_str
-                .parse::<Size>()
-                .unwrap_or_else(|_| {
-                    clap::Error::value_validation_auto(
-                        "The argument to --min-size is not a valid syntax. Try -s=5MB for example."
-                            .to_owned(),
-                    ).exit()
-                })
-                .into::<Byte>().value() as u64
-        }
+        Some(min_size_str) => min_size_str
+            .parse::<Size>()
+            .unwrap_or_else(|_| {
+                clap::Error::value_validation_auto(
+                    "The argument to --min-size is not a valid syntax. Try -s=5MB for example."
+                        .to_owned(),
+                )
+                .exit()
+            })
+            .into::<Byte>()
+            .value() as u64,
         None => 0,
     };
     let n_nodes = match matches.value_of("nodes") {
-        Some(min_size_str) => {
-            match min_size_str.parse::<usize>() {
-                Ok(x) if x > 0 => x,
-                _ => {
-                    clap::Error::value_validation_auto(
-                        "The argument to --nodes is not a positive integer".to_owned(),
-                    ).exit()
-                }
-            }
-        }
+        Some(min_size_str) => match min_size_str.parse::<usize>() {
+            Ok(x) if x > 0 => x,
+            _ => clap::Error::value_validation_auto(
+                "The argument to --nodes is not a positive integer".to_owned(),
+            )
+            .exit(),
+        },
         None => 0,
     };
     let optlevel: Option<OptLevel> = match matches.value_of("optlevel").unwrap_or("auto") {
@@ -189,31 +190,26 @@ or with a user wide profile:
         _ => clap::Error::value_validation_auto("Only -O0, -O1, -O2 exist.".to_owned()).exit(),
     };
     let root: Option<OsString> = matches.value_of("root").map(|path| {
-        let path_buf = PathBuf::from(path).canonicalize().unwrap_or_else(|err| {
-            die!(1, "Could not canonicalize path «{}»: {}", path, err)
-        });
+        let path_buf = PathBuf::from(path)
+            .canonicalize()
+            .unwrap_or_else(|err| die!(1, "Could not canonicalize path «{}»: {}", path, err));
         OsString::from(path_buf)
     });
 
     set_quiet(matches.is_present("quiet"));
-
 
     /**************************************
      * end argument parsing               *
      **************************************/
 
     msg!("Reading dependency graph from store... ");
-    let mut g = depgraph::DepInfos::read_from_store(root).unwrap_or_else(
-        |res| {
-            die!(res, "Could not read from store")
-        },
-    );
+    let mut g = depgraph::DepInfos::read_from_store(root)
+        .unwrap_or_else(|res| die!(res, "Could not read from store"));
     msg!(
         "{} nodes, {} edges read.\n",
         g.graph.node_count(),
         g.graph.edge_count()
     );
-
 
     /******************
      * handling or -O *
@@ -239,9 +235,8 @@ or with a user wide profile:
         msg!(
             "Looking for optimized paths... (this could take a long time, pass option -O0 to skip)\n"
         );
-        opt::refine_optimized_store(&mut g).unwrap_or_else(|e| {
-            eprintln!("Could not unoptimize {:?}", e)
-        });
+        opt::refine_optimized_store(&mut g)
+            .unwrap_or_else(|e| eprintln!("Could not unoptimize {:?}", e));
     }
 
     noisy!({
@@ -259,7 +254,12 @@ or with a user wide profile:
     g = reduction::condense(g);
 
     if n_nodes > 0 && n_nodes < g.graph.node_count() {
-        let mut sizes: Vec<u64> = g.graph.raw_nodes().iter().map(|n| n.weight.size.get()).collect();
+        let mut sizes: Vec<u64> = g
+            .graph
+            .raw_nodes()
+            .iter()
+            .map(|n| n.weight.size.get())
+            .collect();
         sizes.sort_unstable();
         min_size = sizes[sizes.len().saturating_sub(n_nodes)];
     }

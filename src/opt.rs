@@ -3,16 +3,16 @@ extern crate walkdir;
 use depgraph::*;
 use msg::*;
 
+use self::walkdir::{DirEntryExt, WalkDir};
+use petgraph::prelude::NodeIndex;
+use std::cell::Cell;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
-use std::io::Result;
-use std::cell::Cell;
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+use std::io::Result;
 use std::iter::once;
 use std::os::unix::fs::MetadataExt;
-use self::walkdir::{WalkDir, DirEntryExt};
-use petgraph::prelude::NodeIndex;
+use std::path::{Path, PathBuf};
 
 enum Owner {
     One(NodeIndex),
@@ -113,9 +113,12 @@ pub fn store_is_optimised(di: &DepInfos) -> Result<Option<bool>> {
     // Using this api would only work for LocalStore, which is unfortunate.
     // So we just infer the linksDir from a drv. Not a gc root because it is
     // usually a symlink.
-    let drv = match &di.graph.raw_nodes().iter().find(
-        |node| node.weight.kind() == NodeKind::Path,
-    ) {
+    let drv = match &di
+        .graph
+        .raw_nodes()
+        .iter()
+        .find(|node| node.weight.kind() == NodeKind::Path)
+    {
         &Some(ref node) => &node.weight,
         &None => return Ok(None),
     };
