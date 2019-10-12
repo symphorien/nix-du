@@ -59,7 +59,7 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
             continue;
         };
 
-        let mut walker = WalkDir::new(&path);
+        let walker = WalkDir::new(&path);
         for entry in walker {
             let entry = entry?;
             // only files are hardlinked
@@ -68,7 +68,7 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
             }
             let ino = entry.ino();
             match inode_to_owner.entry(ino) {
-                Entry::Vacant(mut e) => {
+                Entry::Vacant(e) => {
                     // first time we see this inode
                     e.insert(Owner::One(idx));
                 }
