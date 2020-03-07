@@ -33,6 +33,7 @@ rustPlatform.buildRustPackage rec {
   # otherwise, when source=null, buildRustPackage will still try to run cargo-vendor
   cargoVendorDir = if source == null then (writeTextFile {name="dummy"; text="";}) else null;
   inherit cargoSha256;
+  legacyCargoFetcher = true;
 
   doCheck = true;
   checkInputs = [ graphviz ];
