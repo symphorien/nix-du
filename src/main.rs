@@ -278,6 +278,10 @@ or with a user wide profile:
     {
         let stdout = io::stdout();
         let mut handle = stdout.lock();
-        dot::render(&g, &mut handle).expect("Cannot write to stdout");
+        match dot::render(&g, &mut handle) {
+            Ok(_) => (),
+            Err(x) if x.kind() == io::ErrorKind::BrokenPipe => (),
+            Err(x) => die!(3, "While writing to stdout: {}", x)
+        }
     }
 }
