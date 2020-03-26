@@ -1,3 +1,5 @@
-((import ./default.nix).override(_: {source = null;})).overrideAttrs(old: {
-  nativeBuildInputs = (old.nativeBuildInputs or []) ++ (with (import <nixpkgs> {}); [ rust-bindgen rls rustfmt ]);
-})
+with import <nixpkgs> {};
+mkShell {
+  buildInputs = [ nix boost ];
+  nativeBuildInputs = [ graphviz cargo rustc rust-bindgen rls rustfmt cargo-outdated ];
+}

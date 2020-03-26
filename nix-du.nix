@@ -1,56 +1,17 @@
-{ stdenv, fetchFromGitHub, writeTextFile,
-rustPlatform, nix, boost, 
-clangStdenv, clang, llvmPackages,
-graphviz, darwin,
-cargoSha256 ? "118h96hsfjv7kfjy02rr99c0zbddnmdb3b8kiwiqnbygnhmn4671",
-source ?
-  with stdenv.lib.sources;
-  let filter = name: type:
-  let filename = baseNameOf (toString name); in
-  #builtins.trace "type ${type} filename ${filename} name ${name}" (
-  !(type == "directory" && (filename == "target" || filename == "screenshots")) &&
-  !(type == "regular" && builtins.match ''.*\.(md|bk)'' filename != null) &&
-  !(type == "symlink" && filename == "result") &&
-  !(type == "regular" && builtins.match ''.*\.nix'' filename != null && builtins.match ''.*/tests/nix/.*'' name == null) &&
-  !(builtins.match ''\..*'' filename != null)
-  #&& (builtins.trace "ok" true))
-  ;
-  in
-    cleanSourceWith { inherit filter; src = cleanSource ./.; }
-}:
+{ callPackage, graphviz, nix, defaultCrateOverrides, strace, boost, darwin, stdenv }:
 let
-  cargotoml = builtins.readFile ./Cargo.toml;
-  reg = ''.*[[]package[]][^]]*version *= *"([^"]*)".*'';
-  matches = builtins.match reg cargotoml;
-  version = builtins.head matches;
-in
-
-rustPlatform.buildRustPackage rec {
-  name = "nix-du-${version}";
-  inherit version;
-
-  src = source;
-  # otherwise, when source=null, buildRustPackage will still try to run cargo-vendor
-  cargoVendorDir = if source == null then (writeTextFile {name="dummy"; text="";}) else null;
-  inherit cargoSha256;
-  legacyCargoFetcher = true;
-
-  doCheck = true;
-  checkInputs = [ graphviz ];
-  nativeBuildInputs = [] ++ stdenv.lib.optionals doCheck checkInputs;
-
-  buildInputs = [
-    boost
-    nix
-  ] ++ stdenv.lib.optional stdenv.isDarwin darwin.apple_sdk.frameworks.Security;
-
-  RUST_BACKTRACE=1;
-
-  meta = with stdenv.lib; {
-    description = "A tool to determine which gc-roots take space in your nix store";
-    homepage = https://github.com/symphorien/nix-du;
-    license = licenses.lgpl3;
-    maintainers = [ maintainers.symphorien ];
-    platforms = platforms.unix;
+  cargo = callPackage ./Cargo.nix {
+    defaultCrateOverrides = defaultCrateOverrides // {
+      nix-du = attrs: {
+        buildInputs = [
+          boost
+          nix
+        ] ++ stdenv.lib.optional stdenv.isDarwin darwin.apple_sdk.frameworks.Security;
+      };
+    };
   };
+in
+cargo.rootCrate.build.override {
+  runTests = true;
+  testInputs = [ graphviz nix ];
 }
