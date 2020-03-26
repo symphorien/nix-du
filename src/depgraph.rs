@@ -72,7 +72,7 @@ pub enum NodeDescription {
     Shared(Path),
 }
 
-const SHARED_PREFIX: &'static [u8] = b"shared:";
+const SHARED_PREFIX: &[u8] = b"shared:";
 
 impl NodeDescription {
     /// Return `blah` when the path of the
@@ -161,8 +161,11 @@ pub struct DepNode {
 
 impl DepNode {
     /// Note: clones the string describing the path.
+    /// # Safety
+    /// `p` must be a valid pointer and contain no null pointer members.
+    /// Its `path` field must contain a valid C string.
     unsafe fn new(p: &bindings::path_t) -> Self {
-        let path: Vec<u8> = CStr::from_ptr(p.path).to_bytes().iter().cloned().collect();
+        let path: Vec<u8> = CStr::from_ptr(p.path).to_bytes().to_vec();
         use self::NodeDescription::*;
         let description;
         if path[0] == b'/' {
@@ -248,21 +251,27 @@ pub struct DepInfos {
 }
 
 // symbol exported to libnix_adapter
+/// # Safety
+/// `g` must have been obtained by rust code, and not modified by C code.
+/// `p` must be a valid pointer and contain no null pointer members.
+/// Its `path` field must contain a valid C string.
 #[no_mangle]
-pub extern "C" fn register_node(g: *mut DepGraph, p: *const bindings::path_t) {
-    let p: &bindings::path_t = unsafe { p.as_ref().unwrap() };
-    let g: &mut DepGraph = unsafe { g.as_mut().unwrap() };
-    let drv = unsafe { DepNode::new(p) };
+pub unsafe extern "C" fn register_node(g: *mut DepGraph, p: *const bindings::path_t) {
+    let p: &bindings::path_t = p.as_ref().unwrap();
+    let g: &mut DepGraph = g.as_mut().unwrap();
+    let drv = DepNode::new(p);
     g.add_node(drv);
 }
 
 // symbol exported to libnix_adapter
+/// # Safety
+/// `g` must have been obtained by rust code, and not modified by C code.
 #[no_mangle]
-pub extern "C" fn register_edge(g: *mut DepGraph, from: u32, to: u32) {
+pub unsafe extern "C" fn register_edge(g: *mut DepGraph, from: u32, to: u32) {
     if from == to {
         return;
     }
-    let g: &mut DepGraph = unsafe { g.as_mut().unwrap() };
+    let g: &mut DepGraph = g.as_mut().unwrap();
     g.add_edge(NodeIndex::from(from), NodeIndex::from(to), ());
 }
 

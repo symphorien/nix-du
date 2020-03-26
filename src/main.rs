@@ -32,11 +32,11 @@ fn print_stats<W: io::Write>(w: &mut W, g: &depgraph::DepInfos) -> io::Result<()
     use crate::depgraph::Reachability::*;
     let to_human_readable = |size: u64| {
         size.file_size(humansize::file_size_opts::BINARY)
-            .unwrap_or("nan".to_owned())
+            .unwrap_or_else(|_| "nan".to_owned())
     };
     let size = &g.metadata.size;
     let best = enum_map! {
-        what => size[Aware][what].as_ref().or(size[Unaware][what].as_ref())
+        what => size[Aware][what].as_ref().or_else(|| size[Unaware][what].as_ref())
     };
     if best[Connected].is_none() && best[Disconnected].is_none() {
         return Ok(());
@@ -50,7 +50,7 @@ fn print_stats<W: io::Write>(w: &mut W, g: &depgraph::DepInfos) -> io::Result<()
             w.write_all(p)?
         }
     }
-    write!(w, ":\n")?;
+    writeln!(w, ":")?;
     for (what, value) in best {
         if let Some(&total) = value {
             let desc = match what {
@@ -59,15 +59,14 @@ fn print_stats<W: io::Write>(w: &mut W, g: &depgraph::DepInfos) -> io::Result<()
             };
             write!(w, "\t{}: {}", desc, to_human_readable(total))?;
             if size[Aware][what].is_none() {
-                write!(w, " (not taking optimisation into account)")?;
+                writeln!(w, " (not taking optimisation into account)")?;
             } else if let Some(unopt) = size[Unaware][what] {
-                write!(
+                writeln!(
                     w,
                     " ({} saved by optimisation)",
                     to_human_readable(unopt - total)
                 )?;
             }
-            write!(w, "\n")?;
         }
     }
     Ok(())

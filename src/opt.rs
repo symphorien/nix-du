@@ -117,8 +117,8 @@ pub fn store_is_optimised(di: &DepInfos) -> Result<Option<bool>> {
         .iter()
         .find(|node| node.weight.kind() == NodeKind::Path)
     {
-        &Some(ref node) => &node.weight,
-        &None => return Ok(None),
+        Some(ref node) => &node.weight,
+        None => return Ok(None),
     };
     let mut p = PathBuf::from(drv.description.path_as_os_str().unwrap().to_os_string());
     // compute the location of .links
@@ -144,5 +144,5 @@ pub fn store_is_optimised(di: &DepInfos) -> Result<Option<bool>> {
             return Ok(Some(true));
         }
     }
-    return Ok(Some(false));
+    Ok(Some(false))
 }
