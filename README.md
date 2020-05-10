@@ -93,9 +93,9 @@ nix-du -s=500MB | tred | dot -Tsvg > store.svg
 ```
 nix-du -n=50 | tred | dot -Tsvg > store.svg
 ```
-Note that with `-n` some roots are kept even if they are not heavy enough.
-
-With both filtering methods, the size of nodes becomes an approximation, so don't
+Note that with these options
+* some roots are kept even if they are not heavy enough.
+* the size of nodes becomes an approximation, so don't
 be surprised if removing a 500MB root only saves 450MB.
 
 ### What element of my profile is taking space ?
@@ -103,11 +103,11 @@ be surprised if removing a 500MB root only saves 450MB.
 path are responsible for disk usage. To do so, pass `--root
 /nix/store/hash-foo`. Notably, here are useful use cases:
 
-* Which packages installed with `environment.systemPackages` in `/etc/nixos/configuration.nix` use most space ?
+* Which packages installed with `environment.systemPackages` in `/etc/nixos/configuration.nix` use most space ? (ignoring everything less than 500MB)
 ```
 nix-du --root /run/current-system/sw/ -s 500MB | tred > result.dot
 ```
-* Which packages installed with `nix-env` use most space ? (ignoring everything less than 500MB)
+* Which packages installed with `nix-env` use most space ?
 ```
 nix-du --root ~/.nix-profile | tred > result.dot
 ```
