@@ -174,8 +174,8 @@ by the same set of gc-roots"
 * There is an edge between two classes if it is not a self loop and there was an edge between any elements of the classes
 in the original graph
 
-The representative of the class inherits the total size of the class and the name of an arbitrary member.
-This is sometimes useful, but also often meaningless. For example I have already seen a huge node `glibc-locales` with
+The representative of the class inherits the total size of the class and the name of an arbitrary member. The size is the most important
+information. The name of a node is sometimes useful, but also often meaningless. For example I have already seen a huge node `glibc-locales` with
 an edge to `texlive` components which is surprising since `glibc-locales` has no references...
 
 If you use any of `-s` (only keep nodes bigger than a given size) or `-n` (only keep the `n` biggest nodes) then an approximation
