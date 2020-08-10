@@ -169,10 +169,10 @@ impl DepNode {
         use self::NodeDescription::*;
         let description;
         if path[0] == b'/' {
-            if p.is_root != 0 {
-                description = Link(path);
-            } else if path.starts_with(b"/proc/") {
+            if path.starts_with(b"/proc/") {
                 description = Memory(path);
+            } else if p.is_root != 0 {
+                description = Link(path);
             } else {
                 description = Path(path);
             }
