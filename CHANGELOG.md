@@ -1,3 +1,7 @@
+v0.3.2:
+
+* fix roots in /proc not being aggregated as transient roots
+
 v0.3.1:
 
 * support for nix 2.3
