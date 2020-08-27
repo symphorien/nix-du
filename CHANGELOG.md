@@ -1,3 +1,7 @@
+v0.3.3:
+
+* forgot to update Cargo.lock with previous release
+
 v0.3.2:
 
 * fix roots in /proc not being aggregated as transient roots
