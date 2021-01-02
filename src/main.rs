@@ -136,6 +136,13 @@ or with a user wide profile:
                 .takes_value(true),
         )
         .arg(
+            clap::Arg::with_name("dump")
+                .long("dump")
+                .value_name("FILE")
+                .help("Dump the unaltered graph read from store to the file passed as argument. Intended for debugging.")
+                .takes_value(true),
+        )
+        .arg(
             clap::Arg::with_name("optlevel")
                 .short("O")
                 .long("opt-level")
@@ -188,6 +195,11 @@ or with a user wide profile:
             .unwrap_or_else(|err| die!(1, "Could not canonicalize path «{}»: {}", path, err));
         OsString::from(path_buf)
     });
+    let dumpfile: Option<(std::fs::File, &str)> = matches.value_of("dump").map(|path| {
+        let f = std::fs::File::create(path)
+            .unwrap_or_else(|err| die!(1, "Could not open dump file «{}»: {}", path, err));
+        (f, path)
+    });
 
     set_quiet(matches.is_present("quiet"));
 
@@ -203,6 +215,17 @@ or with a user wide profile:
         g.graph.node_count(),
         g.graph.edge_count()
     );
+
+    /*************************************
+     * handling of --dump
+     * **********************************/
+
+    if let Some((mut f, path)) = dumpfile {
+        msg!("Dumping dependency graph to {}...", path);
+        dot::render(&g, &mut f).unwrap_or_else(|err| die!(1, "Could not dump dependency graph: {}", err));
+        drop(f);
+        msg!(" done\n");
+    }
 
     /******************
      * handling or -O *
