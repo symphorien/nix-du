@@ -1,3 +1,8 @@
+master
+
+* add --dump option for debugging
+* take keep-outputs and keep-derivations into account in nix.conf
+
 v0.3.3:
 
 * forgot to update Cargo.lock with previous release
