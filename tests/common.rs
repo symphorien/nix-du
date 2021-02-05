@@ -121,12 +121,11 @@ fn check_syntax<T: AsRef<[u8]>>(out: T, t: &TestDir) {
         .expect_success();
 }
 
-
 pub fn parse_out(out: String) -> Output {
     let mut res = Output::new();
     let mut id_to_node = std::collections::BTreeMap::new();
-    let node_re = regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([ {}:a-z]+) \(([^)]+)\)"#)
-        .unwrap();
+    let node_re =
+        regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([ {}:a-z]+) \(([^)]+)\)"#).unwrap();
     let edge_re = regex::Regex::new(r"N(\d+) -> N(\d+)").unwrap();
     for node in node_re.captures_iter(&out) {
         println!("node: {:?}", node);
@@ -154,14 +153,18 @@ pub fn parse_out(out: String) -> Output {
 
 fn assert_matches_one_of(got: &Output, expected: &[&Output]) {
     assert!(
-        expected.iter().any(|e|
-    petgraph::algo::is_isomorphic_matching(got, e, |a, b| a == b, |_, _| true)),
-    "non-isomorphic graphs.\ngot:\n{:?}\nexpected:\n{}",
-    petgraph::dot::Dot::new(got),
-    {
-        let x: Vec<_> = expected.iter().map(|e| format!("{:?}", petgraph::dot::Dot::new(e))).collect();
-        &x.join("\nOR\n")
-    }
+        expected
+            .iter()
+            .any(|e| petgraph::algo::is_isomorphic_matching(got, e, |a, b| a == b, |_, _| true)),
+        "non-isomorphic graphs.\ngot:\n{:?}\nexpected:\n{}",
+        petgraph::dot::Dot::new(got),
+        {
+            let x: Vec<_> = expected
+                .iter()
+                .map(|e| format!("{:?}", petgraph::dot::Dot::new(e)))
+                .collect();
+            &x.join("\nOR\n")
+        }
     );
 }
 
@@ -220,7 +223,7 @@ macro_rules! dec_test {
 
             $inner
         }
-    }
+    };
 }
 /****************************
  * Here come the tests.
@@ -237,17 +240,28 @@ dec_test!(
     keep_outputs = |t| {
         dec_spec!(spec = (foo, bar; foo -> bar));
         prepare_store(&spec, "keep-outputs = true\nkeep-derivations = false\n", &t);
-        
+
         // let's make a root "drvroot" to foo.drv
-        let drv_for_foo_ = call("nix-store", &t).arg("--query").arg("--deriver").arg("roots/foo").expect_success();
+        let drv_for_foo_ = call("nix-store", &t)
+            .arg("--query")
+            .arg("--deriver")
+            .arg("roots/foo")
+            .expect_success();
         let drv_for_foo = drv_for_foo_.stdout_str().trim();
         dbg!(drv_for_foo);
         fs::metadata(drv_for_foo).expect("drv_for_foo does not exist");
         symlink(drv_for_foo, t.path("roots/drvroot")).unwrap();
-        symlink(t.path("roots/drvroot"), t.path("nixstore/var/nix/gcroots/root")).unwrap();
+        symlink(
+            t.path("roots/drvroot"),
+            t.path("nixstore/var/nix/gcroots/root"),
+        )
+        .unwrap();
         // now remove foo, so foo is only kept because of drvroot -> foo.drv
         std::fs::remove_file(t.path("roots/foo")).expect("cannot remove roots/blih");
-        let live_ = call("nix-store", &t).arg("--gc").arg("--print-live").expect_success();
+        let live_ = call("nix-store", &t)
+            .arg("--gc")
+            .arg("--print-live")
+            .expect_success();
         let live = live_.stdout_str();
         println!("Alive paths: {}", live);
         assert!(live.contains("-foo\n"));
@@ -442,7 +456,7 @@ dec_test!(
               baz, qux, frob;
               baz -> qux, qux -> frob));
 
-        prepare_store(&optimised, "",  &t);
+        prepare_store(&optimised, "", &t);
         call("nix-store", &t).arg("--optimise").expect_success();
         prepare_store(&not_optimised, "", &t);
         std::fs::remove_file(t.path("roots/blih")).expect("cannot remove roots/blih");
@@ -483,8 +497,10 @@ dec_test!(
                 e -> g, f -> g));
 
         // find the store path of d
-        let out = call("nix-store", &t).args(&["--gc", "--print-live"]).expect_success();
-        let txt : &str = &String::from_utf8_lossy(&out.stdout);
+        let out = call("nix-store", &t)
+            .args(&["--gc", "--print-live"])
+            .expect_success();
+        let txt: &str = &String::from_utf8_lossy(&out.stdout);
         let mut path: Option<String> = None;
         for line in txt.lines() {
             if line.starts_with("/") && line.ends_with("-d") {
