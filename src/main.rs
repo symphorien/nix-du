@@ -222,7 +222,8 @@ or with a user wide profile:
 
     if let Some((mut f, path)) = dumpfile {
         msg!("Dumping dependency graph to {}...", path);
-        dot::render(&g, &mut f).unwrap_or_else(|err| die!(1, "Could not dump dependency graph: {}", err));
+        dot::render(&g, &mut f)
+            .unwrap_or_else(|err| die!(1, "Could not dump dependency graph: {}", err));
         drop(f);
         msg!(" done\n");
     }
@@ -303,7 +304,7 @@ or with a user wide profile:
         match dot::render(&g, &mut handle) {
             Ok(_) => (),
             Err(x) if x.kind() == io::ErrorKind::BrokenPipe => (),
-            Err(x) => die!(3, "While writing to stdout: {}", x)
+            Err(x) => die!(3, "While writing to stdout: {}", x),
         }
     }
 }
