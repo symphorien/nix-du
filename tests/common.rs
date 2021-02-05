@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: LGPL-3.0
 
-use std::process::Command;
+use cli_test_dir::ExpectStatus;
+use cli_test_dir::OutputExt;
 use cli_test_dir::TestDir;
-use std::fs;
+use human_size::{Byte, Size};
 use petgraph::prelude::*;
 use petgraph::visit::IntoNodeReferences;
-use cli_test_dir::ExpectStatus;
-use human_size::{Size, Byte};
+use std::fs;
+use std::os::unix::fs::symlink;
+use std::process::Command;
 
 fn setup_nix_env(mut c: Command, t: &TestDir) -> Command {
     let store_root = t.path("nixstore");
@@ -22,8 +24,7 @@ fn setup_nix_env(mut c: Command, t: &TestDir) -> Command {
         // sandbox-exec: sandbox_apply_container: Operation not permitted
         // Let's disable this.
         ("_NIX_TEST_NO_SANDBOX", "1"),
-    ]
-    {
+    ] {
         let dir = store_root.join(value);
         fs::create_dir_all(&dir).unwrap();
         c.env(key, dir);
@@ -54,7 +55,8 @@ pub struct Class {
     count: u16,
 }
 pub type Output = petgraph::graph::Graph<Class, ()>;
-pub fn prepare_store(spec: &Specification, t: &TestDir) {
+pub fn prepare_store(spec: &Specification, nix_conf: &'static str, t: &TestDir) {
+    t.create_file("nixstore/etc/nix.conf", nix_conf);
     let mut content = format!(
         "with import {};
     rec {{
@@ -107,7 +109,6 @@ pub fn prepare_store(spec: &Specification, t: &TestDir) {
             .expect_success()
             .stdout;
         println!("{}", String::from_utf8_lossy(&x));
-
     }
 }
 
@@ -169,7 +170,11 @@ fn assert_matches(got: &Output, expected: &Output) {
 }
 
 pub fn run_and_parse<'a>(args: &'a [&'a str], t: &'a TestDir) -> Output {
-    let process = call_self(&t).args(args).expect_success();
+    let process = call_self(&t)
+        .arg("--dump")
+        .arg("/dev/stderr")
+        .args(args)
+        .expect_success();
     let out = String::from_utf8_lossy(&process.stdout);
     let err = String::from_utf8_lossy(&process.stderr);
     println!("Got output:\n{}\n{}", &err, &out);
@@ -226,12 +231,38 @@ macro_rules! dec_test {
  * order". Design your testcases wisely.
  * - same thing with `keep`: present edges are not completely specified.
  * - all nodes without incoming edges will be roots.
- ******************************/
+******************************/
+
+dec_test!(
+    keep_outputs = |t| {
+        dec_spec!(spec = (foo, bar; foo -> bar));
+        prepare_store(&spec, "keep-outputs = true\nkeep-derivations = false\n", &t);
+        
+        // let's make a root "drvroot" to foo.drv
+        let drv_for_foo_ = call("nix-store", &t).arg("--query").arg("--deriver").arg("roots/foo").expect_success();
+        let drv_for_foo = drv_for_foo_.stdout_str().trim();
+        dbg!(drv_for_foo);
+        fs::metadata(drv_for_foo).expect("drv_for_foo does not exist");
+        symlink(drv_for_foo, t.path("roots/drvroot")).unwrap();
+        symlink(t.path("roots/drvroot"), t.path("nixstore/var/nix/gcroots/root")).unwrap();
+        // now remove foo, so foo is only kept because of drvroot -> foo.drv
+        std::fs::remove_file(t.path("roots/foo")).expect("cannot remove roots/blih");
+        let live_ = call("nix-store", &t).arg("--gc").arg("--print-live").expect_success();
+        let live = live_.stdout_str();
+        println!("Alive paths: {}", live);
+        assert!(live.contains("-foo\n"));
+        // the derivation still points to foo and bar, so they are alive
+
+        dec_out!(expected = (drvroot 2;));
+        let real = run_and_parse(&[], &t);
+        assert_matches(&real, &expected);
+    }
+);
 
 dec_test!(
     k2_1 = |t| {
         dec_spec!(spec = (coucou, foo, bar; coucou -> foo, bar -> foo));
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
 
         dec_out!(expected = (coucou 1, bar 1, foo 1; coucou -> foo, bar -> foo));
         let real = run_and_parse(&[], &t);
@@ -244,7 +275,7 @@ dec_test!(
         dec_spec!(spec = (
               coucou, foo, bar, baz, mux;
               coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
 
         dec_out!(expected = (
                 coucou 2, bar 1, foo 2;
@@ -259,7 +290,7 @@ dec_test!(
         dec_spec!(spec = (
               coucou, foo, bar, baz, mux;
               coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
 
         dec_out!(expected = (
                 coucou 2, bar 1, foo 2;
@@ -274,7 +305,7 @@ dec_test!(
         dec_spec!(spec = (
               coucou, foo, bar, baz, mux, frob;
               coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
 
         dec_out!(expected = (
                 coucou 2, bar 1, foo 2, filtered_out 1;
@@ -289,7 +320,7 @@ dec_test!(
         dec_spec!(spec = (
                 a, b, c, d, e, f;
                 a -> d, b -> d, c -> e, d -> e, e -> f));
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
 
         let real = run_and_parse(&["-n1"], &t);
         dec_out!(expected11 = (
@@ -313,7 +344,7 @@ dec_test!(
         dec_spec!(spec = (
                 a, b, c, d, e, f;
                 a -> d, b -> d, c -> e, d -> e, e -> f));
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
 
         let real = run_and_parse(&["-s=150KB"], &t);
         dec_out!(expected11 = (
@@ -337,7 +368,7 @@ dec_test!(
         dec_spec!(spec = (
               coucou, foo, bar, baz, mux;
               coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
 
         dec_out!(expected = (
                 coucou 2, bar 1, foo 2;
@@ -352,7 +383,7 @@ dec_test!(
         dec_spec!(spec = (
               coucou, foo, bar, baz, mux, frob;
               coucou -> foo, bar -> foo, foo -> baz, coucou -> mux, mux -> baz));
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
 
         dec_out!(expected = (
             coucou 2, bar 1, foo 2, filtered_out 1;
@@ -368,7 +399,7 @@ dec_test!(
               coucou, foo, bar;
               coucou -> foo)); // coucou != foo == bar
 
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
 
         let real0 = run_and_parse(&["-O0"], &t);
         let realauto = run_and_parse(&[], &t);
@@ -385,7 +416,7 @@ dec_test!(
               coucou, foo, bar;
               coucou -> foo)); // coucou != foo == bar
 
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
         call("nix-store", &t).arg("--optimise").expect_success();
 
         let real1 = run_and_parse(&["-O1"], &t);
@@ -411,9 +442,9 @@ dec_test!(
               baz, qux, frob;
               baz -> qux, qux -> frob));
 
-        prepare_store(&optimised, &t);
+        prepare_store(&optimised, "",  &t);
         call("nix-store", &t).arg("--optimise").expect_success();
-        prepare_store(&not_optimised, &t);
+        prepare_store(&not_optimised, "", &t);
         std::fs::remove_file(t.path("roots/blih")).expect("cannot remove roots/blih");
 
         let real1 = run_and_parse(&["-O1"], &t);
@@ -444,7 +475,8 @@ dec_test!(
         dec_spec!(spec = (
             a, b, c, d, e, f, g, h, i, j;
             a->b, c->d, d->e, e->j, e->g, d->f, f->g, c->h, h->i));
-        prepare_store(&spec, &t);
+        // don't keep derivations to keep things simple
+        prepare_store(&spec, "keep-derivations = false\n", &t);
 
         dec_out!(expected = (
                 e 2, g 1, f 1;
@@ -471,7 +503,7 @@ dec_test!(
               coucou, foo, bar;
               coucou -> foo)); // coucou != foo == bar
 
-        prepare_store(&spec, &t);
+        prepare_store(&spec, "", &t);
         call("nix-store", &t).arg("--optimise").expect_success();
 
         dec_out!(expected = (foo 1;));
