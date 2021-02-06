@@ -125,7 +125,7 @@ pub fn parse_out(out: String) -> Output {
     let mut res = Output::new();
     let mut id_to_node = std::collections::BTreeMap::new();
     let node_re =
-        regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([ {}:a-z]+) \(([^)]+)\)"#).unwrap();
+        regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([ {}:a-z.]+) \(([^)]+)\)"#).unwrap();
     let edge_re = regex::Regex::new(r"N(\d+) -> N(\d+)").unwrap();
     for node in node_re.captures_iter(&out) {
         println!("node: {:?}", node);
@@ -135,6 +135,7 @@ pub fn parse_out(out: String) -> Output {
             .to_owned()
             .replace(" ", "_")
             .replace(":", "_")
+            .replace(".", "_")
             .replace("{", "")
             .replace("}", "");
         let size: Size = node[3].parse().unwrap(); // should be 100KB*num of deps
@@ -149,6 +150,28 @@ pub fn parse_out(out: String) -> Output {
         res.add_edge(id_to_node[&id1], id_to_node[&id2], ());
     }
     res
+}
+
+/// Returns the drv path corresponding to this realised derivation
+fn drv_for(file: &str, t: &TestDir) -> String {
+    let raw = call("nix-store", &t)
+        .arg("--query")
+        .arg("--deriver")
+        .arg(file)
+        .expect_success();
+    let res = raw.stdout_str().trim();
+    fs::metadata(res).expect("drv file does not exist");
+    res.into()
+}
+
+/// Makes a root `rootname` pointing to `store_path`
+fn make_root(store_path: impl AsRef<std::path::Path>, rootname: &str, t: &TestDir) {
+    symlink(store_path.as_ref(), t.path("roots").join(rootname)).unwrap();
+    symlink(
+        t.path("roots").join(rootname),
+        t.path("nixstore/var/nix/gcroots").join(rootname),
+    )
+    .unwrap();
 }
 
 fn assert_matches_one_of(got: &Output, expected: &[&Output]) {
@@ -242,20 +265,8 @@ dec_test!(
         prepare_store(&spec, "keep-outputs = true\nkeep-derivations = false\n", &t);
 
         // let's make a root "drvroot" to foo.drv
-        let drv_for_foo_ = call("nix-store", &t)
-            .arg("--query")
-            .arg("--deriver")
-            .arg("roots/foo")
-            .expect_success();
-        let drv_for_foo = drv_for_foo_.stdout_str().trim();
-        dbg!(drv_for_foo);
-        fs::metadata(drv_for_foo).expect("drv_for_foo does not exist");
-        symlink(drv_for_foo, t.path("roots/drvroot")).unwrap();
-        symlink(
-            t.path("roots/drvroot"),
-            t.path("nixstore/var/nix/gcroots/root"),
-        )
-        .unwrap();
+        let drv_for_foo = drv_for("roots/foo", &t);
+        make_root(dbg!(&drv_for_foo), "drvroot", &t);
         // now remove foo, so foo is only kept because of drvroot -> foo.drv
         std::fs::remove_file(t.path("roots/foo")).expect("cannot remove roots/blih");
         let live_ = call("nix-store", &t)
@@ -270,6 +281,28 @@ dec_test!(
         dec_out!(expected = (drvroot 2;));
         let real = run_and_parse(&[], &t);
         assert_matches(&real, &expected);
+    }
+);
+
+dec_test!(
+    keep_both = |t| {
+        dec_spec!(spec = (foo;));
+        prepare_store(&spec, "keep-outputs = true\nkeep-derivations = true\n", &t);
+
+        // let's make a root "drvroot" to foo.drv
+        let drv_for_foo = drv_for("roots/foo", &t);
+        make_root(dbg!(&drv_for_foo), "drvroot", &t);
+        // to disambiguate, rename the root to foo
+        let foo_store_path = std::fs::read_link(t.path("roots/foo")).unwrap();
+        std::fs::remove_file(t.path("roots/foo")).expect("cannot remove roots/blih");
+        make_root(foo_store_path, "fooroot", &t);
+
+        dec_out!(expected = (drvroot 0, fooroot 0, foo 1;
+                             drvroot -> foo, fooroot -> foo));
+        dec_out!(expected2 = (drvroot 0, fooroot 0, foo_drv 1;
+                             drvroot -> foo_drv, fooroot -> foo_drv));
+        let real = run_and_parse(&[], &t);
+        assert_matches_one_of(&real, &[&expected, &expected2]);
     }
 );
 
