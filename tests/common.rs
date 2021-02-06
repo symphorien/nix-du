@@ -519,7 +519,8 @@ dec_test!(
               coucou, foo, bar;
               coucou -> foo)); // coucou != foo == bar
 
-        prepare_store(&spec, "", &t);
+        // don't keep derivations to keep things simple
+        prepare_store(&spec, "keep-derivations = false\n", &t);
         call("nix-store", &t).arg("--optimise").expect_success();
 
         dec_out!(expected = (foo 1;));

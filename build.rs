@@ -3,6 +3,7 @@
 fn main() {
     // this build script only depends on the wrapper
     println!("cargo:rerun-if-changed=wrapper.hpp");
+    println!("cargo:rerun-if-changed=wrapper.cpp");
 
     // try compiling with nix <= or > 2.2
     [true, false]

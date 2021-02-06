@@ -92,6 +92,7 @@ extern "C" {
         Path path = queue.back();
         queue.pop_back();
         Info from = get_infos(path).second;
+        // register edges to references
         for (const Path& dep: from.data->references) {
           Info to; bool cached;
           std::tie(cached, to) = get_infos(dep);
@@ -99,19 +100,19 @@ extern "C" {
           if (!cached) {
             queue.push_back(dep);
           }
-          // register edges from/to drv if this path has a derivation
-          if ((settings.gcKeepOutputs || settings.gcKeepDerivations) && !from.data->deriver.empty() && store->isValidPath(from.data->deriver)) {
-            Info drv; bool drv_was_cached;
-            std::tie(drv_was_cached, drv) = get_infos(from.data->deriver);
-            if (settings.gcKeepDerivations) {
-              register_edge(graph, from.index, drv.index);
-            }
-            if (settings.gcKeepOutputs) {
-              register_edge(graph, drv.index, from.index);
-            }
-            if (!drv_was_cached) {
-              queue.push_back(from.data->deriver);
-            }
+        }
+        // register edges from/to drv if this path has a derivation
+        if ((settings.gcKeepOutputs || settings.gcKeepDerivations) && !from.data->deriver.empty() && store->isValidPath(from.data->deriver)) {
+          Info drv; bool drv_was_cached;
+          std::tie(drv_was_cached, drv) = get_infos(from.data->deriver);
+          if (settings.gcKeepDerivations) {
+            register_edge(graph, from.index, drv.index);
+          }
+          if (settings.gcKeepOutputs) {
+            register_edge(graph, drv.index, from.index);
+          }
+          if (!drv_was_cached) {
+            queue.push_back(from.data->deriver);
           }
         }
       }
