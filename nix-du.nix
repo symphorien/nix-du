@@ -1,4 +1,4 @@
-{ callPackage, lib, graphviz, nix, defaultCrateOverrides, strace, boost, darwin, stdenv }:
+{ callPackage, lib, graphviz, nix, defaultCrateOverrides, pkg-config, boost, darwin, stdenv }:
 let
   cargo = callPackage ./Cargo.nix {
     defaultCrateOverrides = defaultCrateOverrides // {
@@ -7,6 +7,7 @@ let
           boost
           nix
         ] ++ lib.optional stdenv.isDarwin darwin.apple_sdk.frameworks.Security;
+        nativeBuildInputs = [ pkg-config ];
       };
     };
   };
