@@ -303,7 +303,7 @@ or with a user wide profile:
         let mut handle = stdout.lock();
         match dot::render(&g, &mut handle) {
             Ok(_) => (),
-            Err(x) if x.kind() == io::ErrorKind::BrokenPipe => (),
+            Err(ref x) if x.kind() == io::ErrorKind::BrokenPipe => (),
             Err(x) => die!(3, "While writing to stdout: {}", x),
         }
     }
