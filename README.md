@@ -181,6 +181,9 @@ an edge to `texlive` components which is surprising since `glibc-locales` has no
 If you use any of `-s` (only keep nodes bigger than a given size) or `-n` (only keep the `n` biggest nodes) then an approximation
 is done so results may be less accurate (but far more readable !)
 
+### Does `nix-du` replace `nix-collect-garbage`?
+No, `nix-du` is only a diagnostic tool, it does not modify anything.
+
 ### My store weighs more than the total size of the graph
 Only live paths are displayed. Or see the section about optimisation.
 
