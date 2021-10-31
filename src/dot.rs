@@ -2,7 +2,7 @@
 
 use crate::depgraph;
 use humansize::FileSize;
-use palette::{FromColor, Hsv, Srgb};
+use palette::{FromColor, Hsv, IntoColor, Srgb, rgb::Rgb};
 use petgraph::visit::IntoNodeReferences;
 use std;
 use std::io::{self, Write};
@@ -30,10 +30,13 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
         .into_iter()
         .map(|x| {
             // into_format() converts from u8 to f32
-            // into_linear() converts color space
-            Hsv::from_rgb(x.into_format().into_linear())
+            // into_linear() converts to linear color space
+            // into_color() converts to Hsv
+            x.into_format()
+                .into_linear()
+                .into_color()
         })
-        .collect::<Vec<Hsv>>(),
+        .collect::<Vec<Hsv<_, _>>>(),
     );
 
     w.write_all(b"digraph nixstore {\n")?;
@@ -54,13 +57,13 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
             .get()
             .file_size(humansize::file_size_opts::BINARY)
             .unwrap();
-        let color: Hsv = gradient.get(scale(node.size.get()));
+        let color: Hsv<_, _> = gradient.get(scale(node.size.get()));
         let textcolor = if color.value > 0.8 {
             "#000000"
         } else {
             "#ffffff"
         };
-        let (r, g, b): (u8, u8, u8) = Srgb::from(color).into_format().into_components();
+        let (r, g, b): (u8, u8, u8) = Srgb::from_linear(Rgb::from_color(color)).into_format().into_components();
         write!(
             w,
             "N{}[color=\"#{:02X}{:02X}{:02X}\",fontcolor=\"{}\",label=\"",
