@@ -14,20 +14,30 @@
 #include <nix/local-store.hh>
 #include <nix/remote-store.hh>
 
-// In nix 2.3, Roots is a map from a string to a set of string instead of a map of string to string
-#ifndef ROOTS_ARE_MAP_TO_SET
-#define ROOTS_ARE_MAP_TO_SET 0
+#ifndef NIXVER
+#define NIXVER 204
 #endif
 
-// In nix 2.3, store->findRoots gained a new argument, censor
-#ifndef FINDROOTS_HAS_CENSOR
-#define FINDROOTS_HAS_CENSOR 0
-#endif
-
-#if FINDROOTS_HAS_CENSOR
+#if NIXVER >= 203
 #define findroots(store) store->findRoots(false)
 #else
 #define findroots(store) store->findRoots()
+#endif
+
+#if NIXVER >= 204
+#define PATH StorePath
+#else
+#define PATH Path
+#endif
+
+#if NIXVER >= 204
+// ->deriver is optional<storepath>
+#define DERIVER_IS_EMPTY(d) (!d.has_value())
+#define DERIVER_GET(d) d.value()
+#else
+// ->deriver is path, aka string
+#define DERIVER_IS_EMPTY(d) d.empty()
+#define DERIVER_GET(d) d
 #endif
 
 extern "C" {
@@ -48,10 +58,10 @@ extern "C" {
       initNix();
       auto store = openStore();
 
-      std::unordered_map<Path, Info> node_to_id;
+      std::unordered_map<PATH, Info> node_to_id;
       // Registers the node if it was not already registered, and return its path info
       // Returns: pair of a boolean indicating if it was already visited, and path info
-      auto get_infos = [&] (const Path& p) {
+      auto get_infos = [&] (const PATH& p) {
         auto it = node_to_id.find(p);
         if (it==node_to_id.end()) {
           Info info = {
@@ -61,7 +71,13 @@ extern "C" {
           path_t entry;
           entry.is_root = 0;
           entry.size = info.data->narSize;
-          entry.path = info.data->path.c_str();
+#if NIXVER >= 204
+          std::string path = store->storeDir + "/";
+          path.append(p.to_string());
+#else
+          std::string path = info.data->path;
+#endif
+          entry.path = path.c_str();
           node_to_id[p] = info;
           register_node(graph, &entry);
           return std::make_pair(false, info);
@@ -71,16 +87,20 @@ extern "C" {
       };
 
       // queue for graph traversal
-      std::vector<Path> queue;
+      std::vector<PATH> queue;
       // initialise with either all nodes or just the root we want
       if (!rootPath) {
         // dump all the store
-        std::set<Path> paths = store->queryAllValidPaths();
+        std::set<PATH> paths = store->queryAllValidPaths();
         std::copy(paths.begin(), paths.end(), std::back_inserter(queue));
       } else {
         // dump only the recursive closure of rootPath
+#if NIXVER >= 204
+        const PATH rootDrv = store->followLinksToStorePath(rootPath);
+#else
         const Path naiveRootPath(rootPath);
-        const Path rootDrv = store->followLinksToStorePath(naiveRootPath);
+        const PATH rootDrv = store->followLinksToStorePath(naiveRootPath);
+#endif
         if (!store->isValidPath(rootDrv)) {
           throw Error("'%s' is not a valid path", rootPath);
         }
@@ -89,11 +109,11 @@ extern "C" {
 
       // follow references in graph traversal, register corresponding edges
       while (!queue.empty()) {
-        Path path = queue.back();
+        PATH path = queue.back();
         queue.pop_back();
         Info from = get_infos(path).second;
         // register edges to references
-        for (const Path& dep: from.data->references) {
+        for (const PATH& dep: from.data->references) {
           Info to; bool cached;
           std::tie(cached, to) = get_infos(dep);
           register_edge(graph, from.index, to.index);
@@ -102,9 +122,9 @@ extern "C" {
           }
         }
         // register edges from/to drv if this path has a derivation
-        if ((settings.gcKeepOutputs || settings.gcKeepDerivations) && !from.data->deriver.empty() && store->isValidPath(from.data->deriver)) {
+        if ((settings.gcKeepOutputs || settings.gcKeepDerivations) && (!DERIVER_IS_EMPTY(from.data->deriver)) && store->isValidPath(DERIVER_GET(from.data->deriver))) {
           Info drv; bool drv_was_cached;
-          std::tie(drv_was_cached, drv) = get_infos(from.data->deriver);
+          std::tie(drv_was_cached, drv) = get_infos(DERIVER_GET(from.data->deriver));
           if (settings.gcKeepDerivations) {
             register_edge(graph, from.index, drv.index);
           }
@@ -112,7 +132,7 @@ extern "C" {
             register_edge(graph, drv.index, from.index);
           }
           if (!drv_was_cached) {
-            queue.push_back(from.data->deriver);
+            queue.push_back(DERIVER_GET(from.data->deriver));
           }
         }
       }
@@ -120,12 +140,12 @@ extern "C" {
       if (!rootPath) {
         // register roots and add edge to corresponding store path
         unsigned index = node_to_id.size();
-#if ROOTS_ARE_MAP_TO_SET
+#if NIXVER >= 203
         for (auto &[storepath, links] : findroots(store)) {
         for (auto link: links) {
 #else
         for (auto root : findroots(store)) {{
-          Path link, storepath;
+          PATH link, storepath;
           std::tie(link, storepath) = root;
 #endif
           if (store->isValidPath(storepath)) {
@@ -142,7 +162,11 @@ extern "C" {
         }
       }
     });
+#if NIXVER >= 204
+    restoreProcessContext();
+#else
     restoreSignals();
+#endif
     return retcode;
   }
 }

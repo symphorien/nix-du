@@ -1,6 +1,5 @@
-with import <nix/config.nix>;
 rec {
-  inherit shell;
+  shell = "/bin/sh";
   system = builtins.currentSystem;
 
   join = list: if list==[] then "." else "${builtins.head list}, ${join (builtins.tail list)}";

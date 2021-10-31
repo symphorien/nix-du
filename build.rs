@@ -19,13 +19,18 @@ fn main() {
         .opt_level(2) // needed for fortify hardening included by nix
         .file("wrapper.cpp");
     if nix.version.as_str() >= "2.3" {
-        builder
-            .flag("-std=c++17")
-            .define("FINDROOTS_HAS_CENSOR", None)
-            .define("ROOTS_ARE_MAP_TO_SET", None);
+        builder.flag("-std=c++17");
     } else {
         builder.flag("-std=c++14");
     }
+    let version = if nix.version.as_str() >= "2.4" {
+        204
+    } else if nix.version.as_str() >= "2.3" {
+        203
+    } else {
+        202
+    };
+    builder.define("NIXVER", version.to_string().as_str());
     builder.compile("libnix_adapter.a");
 
     /* must be passed as an argument to the linker *after* -lnix_adapter */
