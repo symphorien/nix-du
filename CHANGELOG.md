@@ -2,6 +2,7 @@ master
 
 * add --dump option for debugging
 * take keep-outputs and keep-derivations into account in nix.conf
+* nix 2.4 support
 
 v0.3.3:
 
