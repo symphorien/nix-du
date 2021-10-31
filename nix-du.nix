@@ -1,6 +1,7 @@
-{ callPackage, lib, graphviz, nix, nlohmann_json, defaultCrateOverrides, xcbuild, pkg-config, boost, darwin, stdenv }:
+{ callPackage, pkgs, lib, graphviz, nix, nlohmann_json, defaultCrateOverrides, xcbuild, pkg-config, boost, darwin, stdenv }:
 let
-  cargo = callPackage ./Cargo.nix {
+  cargo = import ./Cargo.nix {
+    inherit pkgs;
     defaultCrateOverrides = defaultCrateOverrides // {
       nix-du = attrs: {
         buildInputs = [
