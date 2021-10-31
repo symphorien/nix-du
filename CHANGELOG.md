@@ -1,4 +1,4 @@
-master
+v0.4.0
 
 * add --dump option for debugging
 * take keep-outputs and keep-derivations into account in nix.conf
