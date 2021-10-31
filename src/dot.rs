@@ -2,10 +2,20 @@
 
 use crate::depgraph;
 use humansize::FileSize;
-use palette::{FromColor, Hsv, IntoColor, Srgb, rgb::Rgb};
+use palette::{FromColor, Hsv, IntoColor, RelativeContrast, Srgb, encoding::Linear, rgb::Rgb};
 use petgraph::visit::IntoNodeReferences;
-use std;
+use std::{self, fmt::Display};
 use std::io::{self, Write};
+
+struct GraphvizColor(Hsv<Linear<palette::encoding::Srgb>, f32>);
+
+impl Display for GraphvizColor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let color = Srgb::from_linear(Rgb::from_color(self.0));
+        let (r, g, b): (u8, u8, u8) = color.into_format().into_components();
+        write!(f, "#{:02X}{:02X}{:02X}", r, g, b)
+    }
+}
 
 pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Result<()> {
     // compute color gradient
@@ -36,8 +46,13 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
                 .into_linear()
                 .into_color()
         })
-        .collect::<Vec<Hsv<_, _>>>(),
+        .collect::<Vec<Hsv<_, f32>>>(),
     );
+
+    let textcolors: Vec<(Hsv<_, f32>, String)> = [palette::named::WHITE, palette::named::BLACK].iter().map(|&c| {
+        let c = c.into_format().into_linear().into_color();
+        (c, GraphvizColor(c).to_string())
+    }).collect();
 
     w.write_all(b"digraph nixstore {\n")?;
     w.write_all(b"rankdir=LR;\n")?;
@@ -57,20 +72,13 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
             .get()
             .file_size(humansize::file_size_opts::BINARY)
             .unwrap();
-        let color: Hsv<_, _> = gradient.get(scale(node.size.get()));
-        let textcolor = if color.value > 0.8 {
-            "#000000"
-        } else {
-            "#ffffff"
-        };
-        let (r, g, b): (u8, u8, u8) = Srgb::from_linear(Rgb::from_color(color)).into_format().into_components();
+        let color: Hsv<_, f32> = gradient.get(scale(node.size.get()));
+        let (_, textcolor) = textcolors.iter().max_by_key(|(c, _name)| (c.get_contrast_ratio(&color)*1000.) as u64).expect("no possible textcolor");
         write!(
             w,
-            "N{}[color=\"#{:02X}{:02X}{:02X}\",fontcolor=\"{}\",label=\"",
+            "N{}[color=\"{}\",fontcolor=\"{}\",label=\"",
             idx.index(),
-            r,
-            g,
-            b,
+            GraphvizColor(color),
             textcolor
         )?;
         w.write_all(&node.name())?;
