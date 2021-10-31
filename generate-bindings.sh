@@ -13,5 +13,5 @@ bindgen \
     --whitelist-type path_t \
     --opaque-type 'std::.*' \
     wrapper.hpp \
-    -- -std=c++14 -x c++ \
+    -- -std=c++17 -x c++ -DNIXVER=203 \
     >> src/bindings.rs
