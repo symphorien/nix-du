@@ -360,7 +360,7 @@ impl DepInfos {
             () => {
                 self.metadata.size[dedup]
             };
-        };
+        }
         if entry!()[Reachability::Connected].is_none() {
             entry!()[Reachability::Connected] = Some(self.reachable_size());
         }
