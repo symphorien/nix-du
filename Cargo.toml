@@ -16,8 +16,8 @@ cc = "1.0"
 pkg-config = "0.3"
 
 [dependencies]
-petgraph = "0.5"
-fixedbitset = "0.2"
+petgraph = "0.6"
+fixedbitset = "0.4"
 memchr = "2"
 # output
 humansize = "1"

@@ -340,9 +340,9 @@ rec {
       };
       "fixedbitset" = rec {
         crateName = "fixedbitset";
-        version = "0.2.0";
+        version = "0.4.0";
         edition = "2015";
-        sha256 = "0kg03p777wc0dajd9pvlcnsyrwa8dhqwf0sd9r4dw0p82rs39arp";
+        sha256 = "17mnwa48dy11dnbasxa0c92sdj243acjl2ilhpcb1fa0pvxa93ir";
         authors = [
           "bluss"
         ];
@@ -700,9 +700,9 @@ rec {
       };
       "petgraph" = rec {
         crateName = "petgraph";
-        version = "0.5.1";
+        version = "0.6.0";
         edition = "2018";
-        sha256 = "1dzxda6z17sfxly11m8ja3iargh73pw0s1sdgjyp0qp5dm51cza6";
+        sha256 = "0kw27zzhsa82d4qpkrz91vznyxi3wm0qg0i84grfaqqbkpxa44sa";
         authors = [
           "bluss"
           "mitchmindtree"
