@@ -2,10 +2,10 @@
 
 use crate::depgraph;
 use humansize::FileSize;
-use palette::{FromColor, Hsv, IntoColor, RelativeContrast, Srgb, encoding::Linear, rgb::Rgb};
+use palette::{encoding::Linear, rgb::Rgb, FromColor, Hsv, IntoColor, RelativeContrast, Srgb};
 use petgraph::visit::IntoNodeReferences;
-use std::{self, fmt::Display};
 use std::io::{self, Write};
+use std::{self, fmt::Display};
 
 struct GraphvizColor(Hsv<Linear<palette::encoding::Srgb>, f32>);
 
@@ -42,17 +42,18 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
             // into_format() converts from u8 to f32
             // into_linear() converts to linear color space
             // into_color() converts to Hsv
-            x.into_format()
-                .into_linear()
-                .into_color()
+            x.into_format().into_linear().into_color()
         })
         .collect::<Vec<Hsv<_, f32>>>(),
     );
 
-    let textcolors: Vec<(Hsv<_, f32>, String)> = [palette::named::WHITE, palette::named::BLACK].iter().map(|&c| {
-        let c = c.into_format().into_linear().into_color();
-        (c, GraphvizColor(c).to_string())
-    }).collect();
+    let textcolors: Vec<(Hsv<_, f32>, String)> = [palette::named::WHITE, palette::named::BLACK]
+        .iter()
+        .map(|&c| {
+            let c = c.into_format().into_linear().into_color();
+            (c, GraphvizColor(c).to_string())
+        })
+        .collect();
 
     w.write_all(b"digraph nixstore {\n")?;
     w.write_all(b"rankdir=LR;\n")?;
@@ -73,7 +74,10 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
             .file_size(humansize::file_size_opts::BINARY)
             .unwrap();
         let color: Hsv<_, f32> = gradient.get(scale(node.size.get()));
-        let (_, textcolor) = textcolors.iter().max_by_key(|(c, _name)| (c.get_contrast_ratio(&color)*1000.) as u64).expect("no possible textcolor");
+        let (_, textcolor) = textcolors
+            .iter()
+            .max_by_key(|(c, _name)| (c.get_contrast_ratio(&color) * 1000.) as u64)
+            .expect("no possible textcolor");
         write!(
             w,
             "N{}[color=\"{}\",fontcolor=\"{}\",label=\"",
