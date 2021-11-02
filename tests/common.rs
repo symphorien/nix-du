@@ -13,24 +13,32 @@ use std::process::Command;
 fn setup_nix_env(mut c: Command, t: &TestDir) -> Command {
     let store_root = t.path("nixstore");
 
+    // directories
     for &(key, value) in &[
         ("NIX_STORE_DIR", "store"),
         ("NIX_LOCALSTATE_DIR", "var"),
         ("NIX_LOG_DIR", "var/log/nix"),
         ("NIX_STATE_DIR", "var/nix"),
         ("NIX_CONF_DIR", "etc"),
-        // On osx, nix uses a minimal sandbox even with --option sandbox false
-        // Trouble is, setting up a sandbox inside a sandbox is forbidden and we get:
-        // sandbox-exec: sandbox_apply_container: Operation not permitted
-        // Let's disable this.
-        ("_NIX_TEST_NO_SANDBOX", "1"),
+        ("HOME", "home"),
     ] {
         let dir = store_root.join(value);
         fs::create_dir_all(&dir).unwrap();
         c.env(key, dir);
     }
-    for key in &["NIX_REMOTE", "NIX_PATH"] {
-        c.env(key, "");
+
+    // bare strings
+    for &(key, value) in &[
+        // On osx, nix uses a minimal sandbox even with --option sandbox false
+        // Trouble is, setting up a sandbox inside a sandbox is forbidden and we get:
+        // sandbox-exec: sandbox_apply_container: Operation not permitted
+        // Let's disable this.
+        ("_NIX_TEST_NO_SANDBOX", "1"),
+        ("_NIX_TEST_NO_LSOF", "1"),
+        ("NIX_REMOTE", ""),
+        ("NIX_PATH", ""),
+    ] {
+        c.env(key, value);
     }
     c
 }
