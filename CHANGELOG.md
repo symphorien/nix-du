@@ -1,3 +1,7 @@
+v0.4.1
+
+* Fix running tests on darwin
+
 v0.4.0
 
 * add --dump option for debugging
