@@ -7,11 +7,13 @@ cat > src/bindings.rs <<EOF
 #![allow(dead_code)]
 EOF
 
+nixver="$(pkg-config --modversion nix-main | cut -d. -f 1,2 | tr . 0)"
+
 bindgen \
     --impl-debug \
     --whitelist-function populateGraph \
     --whitelist-type path_t \
     --opaque-type 'std::.*' \
     wrapper.hpp \
-    -- -std=c++17 -x c++ -DNIXVER=203 \
+    -- -x c++ $(pkg-config --cflags nix-store nix-main) -DNIXVER="$nixver" \
     >> src/bindings.rs
