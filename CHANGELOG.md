@@ -1,3 +1,9 @@
+master:
+
+* Fix build with nix 2.7
+* Fix build on 32bit architectures by generating bindings at build time instead
+  of committing them. rustPlatform.bindgenHook is now a build dependency.
+
 v0.4.1
 
 * Fix running tests on darwin
