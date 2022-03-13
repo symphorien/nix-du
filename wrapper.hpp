@@ -15,13 +15,18 @@
 #include <nix/remote-store.hh>
 
 #ifndef NIXVER
-#define NIXVER 204
+#define NIXVER 207
 #endif
 
+#if NIXVER >= 207
+#include <nix/gc-store.hh>
+#define findroots(store) requireGcStore(*store).findRoots(false)
+#else
 #if NIXVER >= 203
 #define findroots(store) store->findRoots(false)
 #else
 #define findroots(store) store->findRoots()
+#endif
 #endif
 
 #if NIXVER >= 204
