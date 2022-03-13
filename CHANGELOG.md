@@ -1,4 +1,4 @@
-master:
+v0.5.0:
 
 * Fix build with nix 2.7
 * Fix build on 32bit architectures by generating bindings at build time instead
