@@ -36,3 +36,4 @@ features = ["suggestions", "color", "wrap_help"]
 rand = "0.8"
 cli_test_dir = "0.1"
 regex = "1"
+which = "4"

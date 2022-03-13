@@ -1,3 +1,7 @@
+master:
+
+* fix bad system call error in tests in pkgsi686Linux.nix-du
+
 v0.5.0:
 
 * Fix build with nix 2.7

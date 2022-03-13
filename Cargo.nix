@@ -919,6 +919,10 @@ rec {
             name = "regex";
             packageId = "regex";
           }
+          {
+            name = "which";
+            packageId = "which";
+          }
         ];
 
       };

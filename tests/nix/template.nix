@@ -1,5 +1,5 @@
+{ shell }:
 rec {
-  shell = "/bin/sh";
   system = builtins.currentSystem;
 
   join = list: if list==[] then "." else "${builtins.head list}, ${join (builtins.tail list)}";

@@ -8,6 +8,7 @@ use petgraph::prelude::*;
 use petgraph::visit::IntoNodeReferences;
 use std::fs;
 use std::os::unix::fs::symlink;
+use std::path::PathBuf;
 use std::process::Command;
 
 fn setup_nix_env(mut c: Command, t: &TestDir) -> Command {
@@ -64,9 +65,11 @@ pub struct Class {
 }
 pub type Output = petgraph::graph::Graph<Class, ()>;
 pub fn prepare_store(spec: &Specification, nix_conf: &'static str, t: &TestDir) {
+    let shell = which::which("sh").unwrap_or_else(|_| PathBuf::from("/bin/sh"));
     t.create_file("nixstore/etc/nix.conf", nix_conf);
     let mut content = format!(
-        "with import {};
+        "{{ shell }}:
+    with import {} {{ inherit shell; }};
     rec {{
     ",
         t.src_path("tests")
@@ -93,17 +96,21 @@ pub fn prepare_store(spec: &Specification, nix_conf: &'static str, t: &TestDir) 
     fs::create_dir_all(&roots_dir).unwrap();
     for root in spec.externals(petgraph::Direction::Incoming) {
         println!("Building {}", spec[root]);
-        call("nix-build", t)
-            .arg("--option")
+        let mut cmd = call("nix-build", t);
+        cmd.arg("--option")
             .arg("sandbox")
             .arg("false")
+            .arg("--argstr")
+            .arg("shell")
+            .arg(&shell)
             .arg(&pkgs)
             .arg("-A")
             .arg(spec[root])
             .arg("-o")
             .arg(&roots_dir.join(spec[root]))
-            .arg("--show-trace")
-            .expect_success();
+            .arg("--show-trace");
+        println!("running command {:?}", &cmd);
+        cmd.expect_success();
         let x = call("nix-store", t)
             .arg("-q")
             .arg("--tree")

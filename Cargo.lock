@@ -311,6 +311,7 @@ dependencies = [
  "rand",
  "regex",
  "walkdir",
+ "which",
 ]
 
 [[package]]
