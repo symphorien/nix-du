@@ -16,6 +16,11 @@
 
 #include "wrapper.hpp"
 
+#if NIXVER >= 208
+#include <nix/gc-store.hh>
+#include <nix/store-cast.hh>
+#define findroots(store) require<GcStore>(*store).findRoots(false)
+#else
 #if NIXVER >= 207
 #include <nix/gc-store.hh>
 #define findroots(store) requireGcStore(*store).findRoots(false)
@@ -24,6 +29,7 @@
 #define findroots(store) store->findRoots(false)
 #else
 #define findroots(store) store->findRoots()
+#endif
 #endif
 #endif
 

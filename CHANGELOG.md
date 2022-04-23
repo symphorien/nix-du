@@ -1,6 +1,7 @@
 master:
 
 * fix bad system call error in tests in pkgsi686Linux.nix-du
+* fix build with nix 2.8
 
 v0.5.0:
 
