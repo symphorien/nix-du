@@ -8,4 +8,4 @@ map
       pkgs = import (builtins.fetchTarball url) { };
     in
     map (x: (pkgs.callPackage ./nix-du.nix { nix = x; }).tested) (allNixVersions pkgs)
-  ) [ /* channel:nixos-21.11 */ channel:nixpkgs-unstable ]
+  ) [ channel:nixos-22.05 channel:nixpkgs-unstable ]
