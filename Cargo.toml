@@ -20,17 +20,14 @@ bindgen = "0.60"
 petgraph = "0.6"
 fixedbitset = "0.4"
 memchr = "2"
-# output
-humansize = "1"
-# input
-human-size = "0.4"
+bytesize = "1"
 palette = "0.6"
 walkdir = "2"
 enum-map = "1"
 
 [dependencies.clap]
-version = "2"
-features = ["suggestions", "color", "wrap_help"]
+version = "3"
+features = ["derive", "suggestions", "color", "wrap_help"]
 
 [dev-dependencies]
 rand = "0.8"

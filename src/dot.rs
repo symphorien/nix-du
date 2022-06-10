@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LGPL-3.0
 
 use crate::depgraph;
-use humansize::FileSize;
+use bytesize::ByteSize;
 use palette::{encoding::Linear, rgb::Rgb, FromColor, Hsv, IntoColor, RelativeContrast, Srgb};
 use petgraph::visit::IntoNodeReferences;
 use std::io::{self, Write};
@@ -68,11 +68,7 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
         if idx == dependencies.root {
             continue;
         };
-        let size = node
-            .size
-            .get()
-            .file_size(humansize::file_size_opts::BINARY)
-            .unwrap();
+        let size = ByteSize::b(node.size.get());
         let color: Hsv<_, f32> = gradient.get(scale(node.size.get()));
         let (_, textcolor) = textcolors
             .iter()

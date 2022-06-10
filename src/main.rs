@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: LGPL-3.0
 
+use clap::Parser;
 use enum_map::enum_map;
 
 #[macro_use]
@@ -10,8 +11,7 @@ pub mod dot;
 pub mod opt;
 pub mod reduction;
 use crate::msg::*;
-use human_size::{Byte, Size};
-use humansize::FileSize;
+use bytesize::ByteSize;
 use std::ffi::OsString;
 use std::io;
 use std::path::PathBuf;
@@ -30,10 +30,6 @@ type OptLevel = Option<StatOpts>;
 fn print_stats<W: io::Write>(w: &mut W, g: &depgraph::DepInfos) -> io::Result<()> {
     use crate::depgraph::DedupAwareness::*;
     use crate::depgraph::Reachability::*;
-    let to_human_readable = |size: u64| {
-        size.file_size(humansize::file_size_opts::BINARY)
-            .unwrap_or_else(|_| "nan".to_owned())
-    };
     let size = &g.metadata.size;
     let best = enum_map! {
         what => size[Aware][what].as_ref().or_else(|| size[Unaware][what].as_ref())
@@ -57,34 +53,24 @@ fn print_stats<W: io::Write>(w: &mut W, g: &depgraph::DepInfos) -> io::Result<()
                 Disconnected => "Total",
                 Connected => "Alive",
             };
-            write!(w, "\t{}: {}", desc, to_human_readable(total))?;
+            write!(w, "\t{}: {}", desc, ByteSize::b(total))?;
             if size[Aware][what].is_none() {
                 writeln!(w, " (not taking optimisation into account)")?;
             } else if let Some(unopt) = size[Unaware][what] {
-                writeln!(
-                    w,
-                    " ({} saved by optimisation)",
-                    to_human_readable(unopt - total)
-                )?;
+                writeln!(w, " ({} saved by optimisation)", ByteSize::b(unopt - total))?;
             }
         }
     }
     Ok(())
 }
 
-fn main() {
-    let matches = clap::App::new("nix-du")
-        .about(
-            "visualise what gc-roots you should delete to free space in your nix-store",
-        )
-        .long_about(
-            "
+const LONG_ABOUT: &'static str = "
 This program outputs a graph on stdout in the dot format which may help you figuring out which \
 gc-roots should be removed in order to reclaim space in the nix store.
 
-To get started, if you are interested in freeing, say, 500MB, run
-`nix-du -s 500MB | tred | dot -Tsvg > /tmp/blah.svg`
-and then view the result in a browser or dedicated software like zgrviewer.
+To get started, if you are interested in freeing, say, 500MB, run \
+`nix-du -s 500MB | tred | dot -Tsvg > /tmp/blah.svg` and then view the result \
+in a browser or dedicated software like zgrviewer.
 
 Without options, `nix-du` outputs a graph where all nodes on which the same set of gc-roots depend \
 are coalesced into one. The resulting node has the size of the sum, and the label of an arbitrary \
@@ -105,103 +91,66 @@ can be used with the system profile on NixOS:
 `nix-du -r /run/current-system/sw/ -s 500MB | tred`
 or with a user wide profile:
 `nix-du -r ~/.nix-profile -s 500MB | tred`
-",
-        )
-        .version(clap::crate_version!())
-        .arg(
-            clap::Arg::with_name("min-size")
-                .short("s")
-                .long("min-size")
-                .value_name("SIZE")
-                .help(
-                    "Hide nodes below this size (a unit should be specified: -s=50MB)",
-                )
-                .takes_value(true),
-        )
-        .arg(
-            clap::Arg::with_name("nodes")
-                .short("n")
-                .long("nodes")
-                .value_name("N")
-                .conflicts_with("min-size")
-                .help("Only keep the approximately N biggest nodes")
-                .takes_value(true),
-        )
-        .arg(
-            clap::Arg::with_name("root")
-                .short("r")
-                .long("root")
-                .value_name("PATH")
-                .help("Consider the dependencies of PATH instead of all gc roots")
-                .takes_value(true),
-        )
-        .arg(
-            clap::Arg::with_name("dump")
-                .long("dump")
-                .value_name("FILE")
-                .help("Dump the unaltered graph read from store to the file passed as argument. Intended for debugging.")
-                .takes_value(true),
-        )
-        .arg(
-            clap::Arg::with_name("optlevel")
-                .short("O")
-                .long("opt-level")
-                .value_name("N")
-                .help("whether to take store optimisation into account: 0: no, 1: live paths, 2: all paths (default autodetect)")
-                .takes_value(true),
-        )
-        .arg(
-            clap::Arg::with_name("quiet")
-                .short("q")
-                .long("quiet")
-                .help("Don't print informationnal messages on stderr"),
-        )
-        .get_matches();
+";
 
-    let mut min_size = match matches.value_of("min-size") {
-        Some(min_size_str) => min_size_str
-            .parse::<Size>()
-            .unwrap_or_else(|_| {
-                clap::Error::value_validation_auto(
-                    "The argument to --min-size is not a valid syntax. Try -s=5MB for example."
-                        .to_owned(),
-                )
-                .exit()
-            })
-            .into::<Byte>()
-            .value() as u64,
-        None => 0,
+/// Visualise what gc-roots you should delete to free space in your nix-store
+#[derive(Parser, Debug)]
+#[clap(version, about, long_about = LONG_ABOUT)]
+struct Args {
+    /// Hide nodes below this size (a unit should be specified: -s=50MB)
+    #[clap(short = 's', long, value_name = "SIZE")]
+    min_size: Option<ByteSize>,
+
+    /// Only keep the approximately N biggest nodes
+    #[clap(short = 'n', long, value_name = "N", conflicts_with = "min-size")]
+    nodes: Option<u32>,
+
+    /// Consider the dependencies of PATH instead of all gc roots
+    #[clap(short = 'r', long, value_name = "PATH")]
+    root: Option<PathBuf>,
+
+    /// Dump the unaltered graph read from store to the file passed as argument. Intended for debugging.
+    #[clap(long, value_name = "FILE")]
+    dump: Option<PathBuf>,
+
+    /// whether to take store optimisation into account: 0: no, 1: live paths, 2: all paths (default autodetect)
+    #[clap(short='O', long, value_name="N", possible_values = &["0", "1", "2", "auto"])]
+    opt_level: Option<String>,
+
+    /// Don't print informationnal messages on stderr
+    #[clap(short = 'q', long)]
+    quiet: bool,
+}
+
+fn main() {
+    let args = Args::parse();
+
+    let optlevel: Option<OptLevel> = match args.opt_level.as_ref().map(String::as_str) {
+        Some("0") => Some(None),
+        Some("1") => Some(Some(StatOpts::Alive)),
+        Some("2") => Some(Some(StatOpts::Full)),
+        Some("auto") | None => None,
+        _ => unreachable!(),
     };
-    let n_nodes = match matches.value_of("nodes") {
-        Some(min_size_str) => match min_size_str.parse::<usize>() {
-            Ok(x) if x > 0 => x,
-            _ => clap::Error::value_validation_auto(
-                "The argument to --nodes is not a positive integer".to_owned(),
+    let root: Option<OsString> = args.root.as_ref().map(|path| {
+        let path_buf = PathBuf::from(path).canonicalize().unwrap_or_else(|err| {
+            die!(
+                1,
+                "Could not canonicalize path «{}»: {}",
+                path.display(),
+                err
             )
-            .exit(),
-        },
-        None => 0,
-    };
-    let optlevel: Option<OptLevel> = match matches.value_of("optlevel").unwrap_or("auto") {
-        "0" => Some(None),
-        "1" => Some(Some(StatOpts::Alive)),
-        "2" => Some(Some(StatOpts::Full)),
-        "auto" => None,
-        _ => clap::Error::value_validation_auto("Only -O0, -O1, -O2 exist.".to_owned()).exit(),
-    };
-    let root: Option<OsString> = matches.value_of("root").map(|path| {
-        let path_buf = PathBuf::from(path)
-            .canonicalize()
-            .unwrap_or_else(|err| die!(1, "Could not canonicalize path «{}»: {}", path, err));
+        });
         OsString::from(path_buf)
     });
-    let dumpfile: Option<(std::fs::File, &str)> = matches.value_of("dump").map(|path| {
-        let f = std::fs::File::create(path)
-            .unwrap_or_else(|err| die!(1, "Could not open dump file «{}»: {}", path, err));
+    let dumpfile: Option<(std::fs::File, &PathBuf)> = args.dump.as_ref().map(|path| {
+        let f = std::fs::File::create(path).unwrap_or_else(|err| {
+            die!(1, "Could not open dump file «{}»: {}", path.display(), err)
+        });
         (f, path)
     });
 
-    set_quiet(matches.is_present("quiet"));
+    set_quiet(args.quiet);
 
     /**************************************
      * end argument parsing               *
@@ -221,7 +170,7 @@ or with a user wide profile:
      * **********************************/
 
     if let Some((mut f, path)) = dumpfile {
-        msg!("Dumping dependency graph to {}...", path);
+        msg!("Dumping dependency graph to {}...", path.display());
         dot::render(&g, &mut f)
             .unwrap_or_else(|err| die!(1, "Could not dump dependency graph: {}", err));
         drop(f);
@@ -270,15 +219,18 @@ or with a user wide profile:
     msg!("Computing quotient graph... ");
     g = reduction::condense(g);
 
-    if n_nodes > 0 && n_nodes < g.graph.node_count() {
-        let mut sizes: Vec<u64> = g
-            .graph
-            .raw_nodes()
-            .iter()
-            .map(|n| n.weight.size.get())
-            .collect();
-        sizes.sort_unstable();
-        min_size = sizes[sizes.len().saturating_sub(n_nodes)];
+    let mut min_size = args.min_size.map(|s| s.as_u64()).unwrap_or(0);
+    if let Some(n_nodes) = args.nodes {
+        if (n_nodes as usize) < g.graph.node_count() {
+            let mut sizes: Vec<u64> = g
+                .graph
+                .raw_nodes()
+                .iter()
+                .map(|n| n.weight.size.get())
+                .collect();
+            sizes.sort_unstable();
+            min_size = sizes[sizes.len().saturating_sub(n_nodes as usize)] as u64;
+        }
     }
 
     /*******************

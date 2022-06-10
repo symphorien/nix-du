@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0
 
+use bytesize::ByteSize;
 use cli_test_dir::ExpectStatus;
 use cli_test_dir::OutputExt;
 use cli_test_dir::TestDir;
-use human_size::{Byte, Size};
 use petgraph::prelude::*;
 use petgraph::visit::IntoNodeReferences;
 use std::fs;
@@ -153,8 +153,8 @@ pub fn parse_out(out: String) -> Output {
             .replace(".", "_")
             .replace("{", "")
             .replace("}", "");
-        let size: Size = node[3].parse().unwrap(); // should be 100KB*num of deps
-        let count = ((size.into::<Byte>().value() as f64) / 100_000f64) as u16;
+        let size: ByteSize = node[3].parse().unwrap(); // should be 100KB*num of deps
+        let count = ((size.as_u64() as f64) / 100_000f64) as u16;
         id_to_node.insert(id, res.add_node(Class { name, count }));
     }
     for edge in edge_re.captures_iter(&out) {
