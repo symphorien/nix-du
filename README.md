@@ -20,7 +20,7 @@ For alternative installation methods, see [INSTALL.md](./INSTALL.md).
 ### Running
 
 `nix-du` outputs its analysis as a directed graph (more on that later) in the DOT format.
-Therefore you need `dot` installed (it is usually available under the package name `graphviz`).
+Therefore, you need `dot` installed (it is usually available under the package name `graphviz`).
 Then you can translate the graph in various more "traditional" image formats.
 
 For example:
@@ -59,13 +59,13 @@ the displayed amount of space.
 
 In this instance, we see that `root` and `coucou` share the same channel, which
 weighs about 50Mo.  The arrows from the channels to `user-environment`
-symbolize that if you want to get rid of these 50MB you have to delete both the
+symbolize that if you want to get rid of these 50 MB you have to delete both the
 channels of `root` and `coucou`.
 
 `nix-index` on the other hand does not appear in the graph: if you remove your (only)
 profile (in yellow) then `nix-index` will be gone. The node `nix-index` has thus been
 merged with the node of the profile. To sum up, if you remove your profile, you will
-save around 27MB.
+save around 27 MB.
 
 Now, you install `graphviz`.
 
@@ -84,8 +84,8 @@ So if you want to save space, remove the red node :)
 
 #### Filters
 In the reality, the dependency graph of a store is often very big (and `dot` will
-struggle computing a layout for it) so you can ask `nix-du` to simplify it:
-* only keep nodes weighing at least 500 MB (i.e. i am only interested in saving at least 500 MB):
+struggle to compute a layout for it) so you can ask `nix-du` to simplify it:
+* only keep nodes weighing at least 500 MB (i.e. I am only interested in saving at least 500 MB):
 ```
 nix-du -s=500MB | tred | dot -Tsvg > store.svg
 ```
@@ -93,17 +93,17 @@ nix-du -s=500MB | tred | dot -Tsvg > store.svg
 ```
 nix-du -n=50 | tred | dot -Tsvg > store.svg
 ```
-Note that with these options
-* some roots are kept even if they are not heavy enough.
-* the size of nodes becomes an approximation, so don't
-be surprised if removing a 500MB root only saves 450MB.
+Note that with these options:
+* Some roots are kept even if they are not heavy enough.
+* The size of nodes becomes an approximation, so don't
+be surprised if removing a 500 MB root only saves 450 MB.
 
 ### What element of my profile is taking space ?
-`nix-du` can also be used for example to analyse which dependencies of a store
+`nix-du` can also be used for example to analyze which dependencies of a store
 path are responsible for disk usage. To do so, pass `--root
 /nix/store/hash-foo`. Notably, here are useful use cases:
 
-* Which packages installed with `environment.systemPackages` in `/etc/nixos/configuration.nix` use most space ? (ignoring everything less than 500MB)
+* Which packages installed with `environment.systemPackages` in `/etc/nixos/configuration.nix` use most space ? (ignoring everything less than 500 MB)
 ```
 nix-du --root /run/current-system/sw/ -s 500MB | tred > result.dot
 ```
@@ -115,7 +115,7 @@ nix-du --root ~/.nix-profile | tred > result.dot
 
 ![](screenshots/profile.svg)
 
-The octogonal boxes are the children of the root store path (here elements of my
+The octagonal boxes are the children of the root store path (here elements of my
 profile).
 
 You can see for example that nix has no dependencies in the graph: it was likely
