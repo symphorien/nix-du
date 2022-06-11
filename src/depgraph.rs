@@ -152,6 +152,9 @@ impl fmt::Debug for NodeDescription {
     }
 }
 
+unsafe impl Send for DepNode {}
+unsafe impl Sync for DepNode {}
+
 #[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]
 pub struct DepNode {
     pub description: NodeDescription,

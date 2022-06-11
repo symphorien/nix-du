@@ -123,6 +123,7 @@ struct Args {
 }
 
 fn main() {
+    rayon::ThreadPoolBuilder::new().num_threads(12).build_global().unwrap();
     let args = Args::parse();
 
     let optlevel: Option<OptLevel> = match args.opt_level.as_ref().map(String::as_str) {
@@ -201,8 +202,8 @@ fn main() {
         msg!(
             "Looking for optimized paths... (this could take a long time, pass option -O0 to skip)\n"
         );
-        opt::refine_optimized_store(&mut g)
-            .unwrap_or_else(|e| eprintln!("Could not unoptimize {:?}", e));
+        g = opt::refine_optimized_store(g)
+            .unwrap_or_else(|e| panic!("Could not unoptimize {:?}", e));
     }
 
     noisy!({

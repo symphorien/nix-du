@@ -26,6 +26,7 @@ bytesize = "1"
 palette = "0.6"
 walkdir = "2"
 enum-map = "1"
+rayon = "1"
 
 [dependencies.clap]
 version = "3"
