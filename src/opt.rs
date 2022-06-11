@@ -3,8 +3,8 @@ use crate::depgraph::*;
 
 use petgraph::prelude::NodeIndex;
 use rayon::prelude::*;
-use std::collections::btree_map::Entry;
-use std::collections::BTreeMap;
+use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::io::Result;
 use std::iter::once;
 use std::os::unix::fs::MetadataExt;
@@ -30,7 +30,7 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
     // forall store path containing this file, then there is an edge from the
     // corresponding node to this files's node.
     // In this case, parents do not count this file's size in their size.
-    let mut inode_to_owner = BTreeMap::new();
+    let mut inode_to_owner = HashMap::new();
 
     let paths: Vec<(petgraph::graph::NodeIndex, PathBuf)> = di.graph.raw_nodes().par_iter().enumerate().filter_map(|(i, r)| {
         // roots are not necessary readable, and anyway they are symlinks
@@ -57,28 +57,34 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
                         if !entry.file_type().is_file() {
                             return None;
                         }
-                        Some((index, entry.ino(), entry))
+                        let metadata = entry.metadata().unwrap();
+                        Some((index, entry.ino(), metadata.len()))
                     })
                     .transpose()
             })
         });
-    let (send, recv) = std::sync::mpsc::sync_channel(100);
+    let (send, recv) = crossbeam_channel::unbounded();
     rayon::join(
         move || {
             iter.for_each(|el| {
-                let _ = send.send(el);
+                let _ = send.send(el).unwrap();
             })
         },
         || {
-            for entry in recv {
-                let (index, inode, entry) = entry.unwrap();
+            let mut n = 0;
+            while let Ok(entry) = recv.recv() {
+            // for entry in recv {
+                let (index, inode, filesize) = entry.unwrap();
+                n+=1;
+                if n % 100_000 == 0 {
+                    dbg!(recv.len());
+                }
                 match inode_to_owner.entry(inode) {
                     Entry::Vacant(e) => {
                         // first time we see this inode
                         e.insert(Owner::One(index));
                     }
                     Entry::Occupied(mut e) => {
-                        let metadata = entry.metadata().unwrap();
                         // this inode is deduplicated
                         let v = e.get_mut();
                         let new_node = match *v {
@@ -88,11 +94,11 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
                                 let name = di.graph[index].name().into_owned();
                                 let new_node = di.graph.add_node(DepNode {
                                     description: NodeDescription::Shared(name),
-                                    size: metadata.len(),
+                                    size: filesize,
                                 });
                                 di.graph.add_edge(n, new_node, ());
                                 let new_w = &mut di.graph[n];
-                                new_w.size -= metadata.len();
+                                new_w.size -= filesize;
                                 *v = Owner::Several(new_node);
                                 new_node
                             }
@@ -100,12 +106,14 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
                         };
                         di.graph.add_edge(index, new_node, ());
                         let w = &mut di.graph[index];
-                        w.size -= metadata.len();
+                        w.size -= filesize;
                     }
                 }
             }
         },
     );
+    dbg!(inode_to_owner.values().filter(|x| matches!(x, Owner::One(_))).count());
+    dbg!(inode_to_owner.len());
     di.metadata.dedup = DedupAwareness::Aware;
     di.record_metadata();
     Ok(di)

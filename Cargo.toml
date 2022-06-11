@@ -27,6 +27,7 @@ palette = "0.6"
 walkdir = "2"
 enum-map = "1"
 rayon = "1"
+crossbeam-channel = "0.5"
 
 [dependencies.clap]
 version = "3"
