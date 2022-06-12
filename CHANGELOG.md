@@ -1,3 +1,8 @@
+master:
+
+* update some dependencies
+* parallelize store optimization handling
+
 v0.5.1:
 
 * fix bad system call error in tests in pkgsi686Linux.nix-du
