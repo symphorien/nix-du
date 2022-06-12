@@ -1,7 +1,8 @@
-master:
+v0.6.0:
 
-* update some dependencies
+* update some dependencies. The CLI parsing may have unintentionally changed.
 * parallelize store optimization handling
+* fix build with nix 2.10pre
 
 v0.5.1:
 

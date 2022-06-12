@@ -431,7 +431,7 @@ checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
 
 [[package]]
 name = "nix-du"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "bindgen",
  "bytesize",

@@ -1207,7 +1207,7 @@ rec {
       };
       "nix-du" = rec {
         crateName = "nix-du";
-        version = "0.5.1";
+        version = "0.6.0";
         edition = "2018";
         crateBin = [
           { name = "nix-du"; path = "src/main.rs"; }
