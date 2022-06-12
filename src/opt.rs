@@ -1,9 +1,9 @@
 use crate::depgraph::*;
 use crate::msg::*;
 
+use dashmap::mapref::entry::Entry;
 use petgraph::prelude::NodeIndex;
 use rayon::prelude::*;
-use dashmap::mapref::entry::Entry;
 use std::io::Result;
 use std::iter::once;
 use std::os::unix::fs::MetadataExt;
@@ -58,13 +58,13 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
             }
             let path = std::path::Path::new(weight.description.path_as_os_str().unwrap());
 
-        // if path is a symlink to a directory, we enumerate files not in this
-        // derivation.
-        if path.symlink_metadata().unwrap().file_type().is_symlink() {
-            return
-        };
+            // if path is a symlink to a directory, we enumerate files not in this
+            // derivation.
+            if path.symlink_metadata().unwrap().file_type().is_symlink() {
+                return;
+            };
 
-        WalkDir::new(&path)
+            WalkDir::new(&path)
         };
         for entry in walker {
             let entry = entry.unwrap();
@@ -93,9 +93,8 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
                         Owner::One(n) => {
                             // second time we see this inode;
                             // let's create a "shared" node for these files
-                            let filesize = filesize.unwrap_or_else(|| {
-                                entry.metadata().unwrap().len()
-                            });
+                            let filesize =
+                                filesize.unwrap_or_else(|| entry.metadata().unwrap().len());
                             let mut graph = locked_graph.write().unwrap();
                             let name = graph[idx].name().into_owned();
                             let new_node = graph.add_node(DepNode {
