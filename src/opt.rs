@@ -1,16 +1,18 @@
 use crate::depgraph::*;
-use crate::msg::*;
+// use crate::msg::*;
 
 use petgraph::prelude::NodeIndex;
-use std::collections::btree_map::Entry;
-use std::collections::BTreeMap;
-use std::ffi::OsString;
+use rayon::prelude::*;
+use dashmap::mapref::entry::Entry;
 use std::io::Result;
 use std::iter::once;
 use std::os::unix::fs::MetadataExt;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::RwLock;
 use walkdir::{DirEntryExt, WalkDir};
 
+#[derive(Debug, Copy, Clone)]
 enum Owner {
     One(NodeIndex),
     Several(NodeIndex),
@@ -29,41 +31,50 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
     // forall store path containing this file, then there is an edge from the
     // corresponding node to this files's node.
     // In this case, parents do not count this file's size in their size.
-    let mut inode_to_owner = BTreeMap::new();
+    let inode_to_owner = dashmap::DashMap::new();
 
-    let mut indices: Vec<NodeIndex> = di.graph.node_indices().collect();
-    let mut progress = Progress::new(indices.len());
-    for (i, idx) in indices.drain(..).enumerate() {
-        noisy!({
-            progress.print(i);
-        });
+    let indices = 0..di.graph.node_count();
+    let locked_graph = Arc::new(RwLock::new(&mut di.graph));
+    // let mut progress = Progress::new(indices.len());
+    indices.into_par_iter().for_each(|i| {
+        // noisy!({
+        //     progress.print(i);
+        // });
+        let idx = petgraph::graph::NodeIndex::new(i);
 
-        let path: OsString;
-        {
+        let walker = {
+            let graph = locked_graph.read().unwrap();
             // scope where we borrow the graph
-            let weight = &di.graph[idx];
+            let weight = &graph[idx];
             // roots are not necessary readable, and anyway they are symlinks
             if weight.kind() != NodeKind::Path {
-                continue;
+                return;
             }
-            path = weight.description.path_as_os_str().unwrap().to_os_string();
-        }
+            let path = std::path::Path::new(weight.description.path_as_os_str().unwrap());
 
         // if path is a symlink to a directory, we enumerate files not in this
         // derivation.
-        let p: &Path = path.as_ref();
-        if p.symlink_metadata()?.file_type().is_symlink() {
-            continue;
+        if path.symlink_metadata().unwrap().file_type().is_symlink() {
+            return
         };
 
-        let walker = WalkDir::new(&path);
+        WalkDir::new(&path)
+        };
         for entry in walker {
-            let entry = entry?;
+            let entry = entry.unwrap();
             // only files are hardlinked
             if !entry.file_type().is_file() {
                 continue;
             }
             let ino = entry.ino();
+            // attempt to make the stat syscall without taking a write lock
+            let must_stat = matches!(inode_to_owner.get(&ino).map(|x| *x), Some(Owner::One(_)));
+            let filesize = if must_stat {
+                Some(entry.metadata().unwrap().len())
+            } else {
+                None
+            };
+
             match inode_to_owner.entry(ino) {
                 Entry::Vacant(e) => {
                     // first time we see this inode
@@ -71,32 +82,36 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
                 }
                 Entry::Occupied(mut e) => {
                     // this inode is deduplicated
-                    let metadata = entry.metadata()?;
                     let v = e.get_mut();
-                    let new_node = match *v {
+                    let (new_node, mut graph) = match *v {
                         Owner::One(n) => {
                             // second time we see this inode;
                             // let's create a "shared" node for these files
-                            let name = di.graph[idx].name().into_owned();
-                            let new_node = di.graph.add_node(DepNode {
-                                description: NodeDescription::Shared(name),
-                                size: metadata.len(),
+                            let filesize = filesize.unwrap_or_else(|| {
+                                entry.metadata().unwrap().len()
                             });
-                            di.graph.add_edge(n, new_node, ());
-                            let new_w = &mut di.graph[n];
-                            new_w.size -= metadata.len();
+                            let mut graph = locked_graph.write().unwrap();
+                            let name = graph[idx].name().into_owned();
+                            let new_node = graph.add_node(DepNode {
+                                description: NodeDescription::Shared(name),
+                                size: filesize,
+                            });
+                            graph.add_edge(n, new_node, ());
+                            let new_w = &mut graph[n];
+                            new_w.size -= filesize;
                             *v = Owner::Several(new_node);
-                            new_node
+                            (new_node, graph)
                         }
-                        Owner::Several(n) => n,
+                        Owner::Several(n) => (n, locked_graph.write().unwrap()),
                     };
-                    di.graph.add_edge(idx, new_node, ());
-                    let w = &mut di.graph[idx];
-                    w.size -= metadata.len();
+                    graph.add_edge(idx, new_node, ());
+                    let filesize = graph[new_node].size;
+                    let w = &mut graph[idx];
+                    w.size -= filesize;
                 }
             }
         }
-    }
+    });
     di.metadata.dedup = DedupAwareness::Aware;
     di.record_metadata();
     Ok(())
