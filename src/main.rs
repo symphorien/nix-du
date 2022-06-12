@@ -123,7 +123,7 @@ struct Args {
 }
 
 fn main() {
-    rayon::ThreadPoolBuilder::new().num_threads(12).build_global().unwrap();
+    // rayon::ThreadPoolBuilder::new().num_threads(12).build_global().unwrap();
     let args = Args::parse();
 
     let optlevel: Option<OptLevel> = match args.opt_level.as_ref().map(String::as_str) {
