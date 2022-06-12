@@ -41,6 +41,8 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
             indicatif::ProgressStyle::default_bar().template("{wide_bar} {percent}% ETA {eta}"),
         )
     };
+    // refresh only 3 times per second, otherwise it's slow
+    progress.set_draw_rate(3);
     let locked_graph = Arc::new(RwLock::new(&mut di.graph));
     indices.into_par_iter().for_each(|i| {
         noisy!({
