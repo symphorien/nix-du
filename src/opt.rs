@@ -44,81 +44,89 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
     // refresh only 3 times per second, otherwise it's slow
     progress.set_draw_rate(3);
     let locked_graph = Arc::new(RwLock::new(&mut di.graph));
-    indices.into_par_iter().for_each(|i| {
-        noisy!({
-            progress.inc(1);
-        });
-        let idx = petgraph::graph::NodeIndex::new(i);
+    indices
+        .into_par_iter()
+        .try_for_each(|i| -> std::io::Result<()> {
+            noisy!({
+                progress.inc(1);
+            });
+            let idx = petgraph::graph::NodeIndex::new(i);
 
-        let walker = {
-            let graph = locked_graph.read().unwrap();
-            // scope where we borrow the graph
-            let weight = &graph[idx];
-            // roots are not necessary readable, and anyway they are symlinks
-            if weight.kind() != NodeKind::Path {
-                return;
-            }
-            let path = std::path::Path::new(weight.description.path_as_os_str().unwrap());
-
-            // if path is a symlink to a directory, we enumerate files not in this
-            // derivation.
-            if path.symlink_metadata().unwrap().file_type().is_symlink() {
-                return;
-            };
-
-            WalkDir::new(&path)
-        };
-        for entry in walker {
-            let entry = entry.unwrap();
-            // only files are hardlinked
-            if !entry.file_type().is_file() {
-                continue;
-            }
-            let ino = entry.ino();
-            // attempt to make the stat syscall without taking a write lock
-            let must_stat = matches!(inode_to_owner.get(&ino).map(|x| *x), Some(Owner::One(_)));
-            let filesize = if must_stat {
-                Some(entry.metadata().unwrap().len())
-            } else {
-                None
-            };
-
-            match inode_to_owner.entry(ino) {
-                Entry::Vacant(e) => {
-                    // first time we see this inode
-                    e.insert(Owner::One(idx));
+            let walker = {
+                let graph = locked_graph.read().expect("poisoned lock");
+                // scope where we borrow the graph
+                let weight = &graph[idx];
+                // roots are not necessary readable, and anyway they are symlinks
+                if weight.kind() != NodeKind::Path {
+                    return Ok(());
                 }
-                Entry::Occupied(mut e) => {
-                    // this inode is deduplicated
-                    let v = e.get_mut();
-                    let (new_node, mut graph) = match *v {
-                        Owner::One(n) => {
-                            // second time we see this inode;
-                            // let's create a "shared" node for these files
-                            let filesize =
-                                filesize.unwrap_or_else(|| entry.metadata().unwrap().len());
-                            let mut graph = locked_graph.write().unwrap();
-                            let name = graph[idx].name().into_owned();
-                            let new_node = graph.add_node(DepNode {
-                                description: NodeDescription::Shared(name),
-                                size: filesize,
-                            });
-                            graph.add_edge(n, new_node, ());
-                            let new_w = &mut graph[n];
-                            new_w.size -= filesize;
-                            *v = Owner::Several(new_node);
-                            (new_node, graph)
-                        }
-                        Owner::Several(n) => (n, locked_graph.write().unwrap()),
-                    };
-                    graph.add_edge(idx, new_node, ());
-                    let filesize = graph[new_node].size;
-                    let w = &mut graph[idx];
-                    w.size -= filesize;
+                let path = std::path::Path::new(
+                    weight
+                        .description
+                        .path_as_os_str()
+                        .expect("node with kind path without path"),
+                );
+
+                // if path is a symlink to a directory, we enumerate files not in this
+                // derivation.
+                if path.symlink_metadata()?.file_type().is_symlink() {
+                    return Ok(());
+                };
+
+                WalkDir::new(&path)
+            };
+            for entry in walker {
+                let entry = entry?;
+                // only files are hardlinked
+                if !entry.file_type().is_file() {
+                    continue;
+                }
+                let ino = entry.ino();
+                // attempt to make the stat syscall without taking a write lock
+                let must_stat = matches!(inode_to_owner.get(&ino).map(|x| *x), Some(Owner::One(_)));
+                let filesize = if must_stat {
+                    Some(entry.metadata()?.len())
+                } else {
+                    None
+                };
+
+                match inode_to_owner.entry(ino) {
+                    Entry::Vacant(e) => {
+                        // first time we see this inode
+                        e.insert(Owner::One(idx));
+                    }
+                    Entry::Occupied(mut e) => {
+                        // this inode is deduplicated
+                        let v = e.get_mut();
+                        let (new_node, mut graph) = match *v {
+                            Owner::One(n) => {
+                                // second time we see this inode;
+                                // let's create a "shared" node for these files
+                                let filesize =
+                                    filesize.unwrap_or_else(|| entry.metadata().unwrap().len());
+                                let mut graph = locked_graph.write().expect("poisoned lock");
+                                let name = graph[idx].name().into_owned();
+                                let new_node = graph.add_node(DepNode {
+                                    description: NodeDescription::Shared(name),
+                                    size: filesize,
+                                });
+                                graph.add_edge(n, new_node, ());
+                                let new_w = &mut graph[n];
+                                new_w.size -= filesize;
+                                *v = Owner::Several(new_node);
+                                (new_node, graph)
+                            }
+                            Owner::Several(n) => (n, locked_graph.write().expect("poisoned lock")),
+                        };
+                        graph.add_edge(idx, new_node, ());
+                        let filesize = graph[new_node].size;
+                        let w = &mut graph[idx];
+                        w.size -= filesize;
+                    }
                 }
             }
-        }
-    });
+            Ok(())
+        })?;
     di.metadata.dedup = DedupAwareness::Aware;
     progress.finish_and_clear();
     di.record_metadata();
