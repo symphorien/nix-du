@@ -521,6 +521,45 @@ rec {
         ];
 
       };
+      "console" = rec {
+        crateName = "console";
+        version = "0.15.0";
+        edition = "2018";
+        sha256 = "0c9wif28i3q231gvjprqdq1glmgmmcdxpmxcwk1p0jx45k9k52x2";
+        authors = [
+          "Armin Ronacher <armin.ronacher@active-4.com>"
+        ];
+        dependencies = [
+          {
+            name = "encode_unicode";
+            packageId = "encode_unicode";
+            target = { target, features }: (target."windows" or false);
+          }
+          {
+            name = "libc";
+            packageId = "libc";
+          }
+          {
+            name = "once_cell";
+            packageId = "once_cell";
+          }
+          {
+            name = "terminal_size";
+            packageId = "terminal_size";
+          }
+          {
+            name = "winapi";
+            packageId = "winapi";
+            target = { target, features }: (target."windows" or false);
+            features = [ "winbase" "winuser" "consoleapi" "processenv" "wincon" ];
+          }
+        ];
+        features = {
+          "ansi-parsing" = [ "regex" ];
+          "default" = [ "unicode-width" "ansi-parsing" ];
+          "windows-console-colors" = [ "ansi-parsing" "winapi-util" ];
+        };
+      };
       "crossbeam-channel" = rec {
         crateName = "crossbeam-channel";
         version = "0.5.4";
@@ -684,6 +723,19 @@ rec {
           "default" = [ "use_std" ];
         };
         resolvedDefaultFeatures = [ "default" "use_std" ];
+      };
+      "encode_unicode" = rec {
+        crateName = "encode_unicode";
+        version = "0.3.6";
+        edition = "2015";
+        sha256 = "07w3vzrhxh9lpjgsg2y5bwzfar2aq35mdznvcp3zjl0ssj7d4mx3";
+        authors = [
+          "Torbjørn Birch Moltu <t.b.moltu@lyse.net>"
+        ];
+        features = {
+          "default" = [ "std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "enum-map" = rec {
         crateName = "enum-map";
@@ -940,6 +992,42 @@ rec {
         };
         resolvedDefaultFeatures = [ "std" ];
       };
+      "indicatif" = rec {
+        crateName = "indicatif";
+        version = "0.16.2";
+        edition = "2018";
+        sha256 = "06xyjs0kzqiqkjn60n1miwm2l87sa9p2lmzz0ymq18y72z37s81d";
+        authors = [
+          "Armin Ronacher <armin.ronacher@active-4.com>"
+          "Dirkjan Ochtman <dirkjan@ochtman.nl>"
+        ];
+        dependencies = [
+          {
+            name = "console";
+            packageId = "console";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "lazy_static";
+            packageId = "lazy_static";
+          }
+          {
+            name = "number_prefix";
+            packageId = "number_prefix";
+          }
+          {
+            name = "regex";
+            packageId = "regex";
+            usesDefaultFeatures = false;
+            features = [ "std" ];
+          }
+        ];
+        features = {
+          "improved_unicode" = [ "unicode-segmentation" "unicode-width" "console/unicode-width" ];
+          "with_rayon" = [ "rayon" ];
+        };
+        resolvedDefaultFeatures = [ "default" ];
+      };
       "itertools" = rec {
         crateName = "itertools";
         version = "0.10.3";
@@ -1151,6 +1239,10 @@ rec {
             packageId = "fixedbitset";
           }
           {
+            name = "indicatif";
+            packageId = "indicatif";
+          }
+          {
             name = "memchr";
             packageId = "memchr";
           }
@@ -1275,6 +1367,35 @@ rec {
           }
         ];
 
+      };
+      "number_prefix" = rec {
+        crateName = "number_prefix";
+        version = "0.4.0";
+        edition = "2015";
+        sha256 = "1wvh13wvlajqxkb1filsfzbrnq0vrmrw298v2j3sy82z1rm282w3";
+        authors = [
+          "Benjamin Sago <ogham@bsago.me>"
+        ];
+        features = {
+          "default" = [ "std" ];
+        };
+        resolvedDefaultFeatures = [ "default" "std" ];
+      };
+      "once_cell" = rec {
+        crateName = "once_cell";
+        version = "1.12.0";
+        edition = "2018";
+        sha256 = "09a2gb4sls2d3762jsps81s5y270465s0ip7cvv5h7qc7zwcw2bp";
+        authors = [
+          "Aleksey Kladov <aleksey.kladov@gmail.com>"
+        ];
+        features = {
+          "alloc" = [ "race" ];
+          "default" = [ "std" ];
+          "parking_lot" = [ "parking_lot_core" ];
+          "std" = [ "alloc" ];
+        };
+        resolvedDefaultFeatures = [ "alloc" "default" "race" "std" ];
       };
       "os_str_bytes" = rec {
         crateName = "os_str_bytes";
@@ -2269,7 +2390,7 @@ rec {
         features = {
           "debug" = [ "impl-debug" ];
         };
-        resolvedDefaultFeatures = [ "consoleapi" "errhandlingapi" "fileapi" "handleapi" "libloaderapi" "minwinbase" "minwindef" "processenv" "std" "winbase" "wincon" "winerror" "winnt" ];
+        resolvedDefaultFeatures = [ "consoleapi" "errhandlingapi" "fileapi" "handleapi" "libloaderapi" "minwinbase" "minwindef" "processenv" "std" "winbase" "wincon" "winerror" "winnt" "winuser" ];
       };
       "winapi-i686-pc-windows-gnu" = rec {
         crateName = "winapi-i686-pc-windows-gnu";

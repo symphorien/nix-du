@@ -1,5 +1,5 @@
 use crate::depgraph::*;
-// use crate::msg::*;
+use crate::msg::*;
 
 use petgraph::prelude::NodeIndex;
 use rayon::prelude::*;
@@ -34,12 +34,18 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
     let inode_to_owner = dashmap::DashMap::new();
 
     let indices = 0..di.graph.node_count();
+    let progress = if quiet() {
+        indicatif::ProgressBar::hidden()
+    } else {
+        indicatif::ProgressBar::new(di.graph.node_count() as u64).with_style(
+            indicatif::ProgressStyle::default_bar().template("{wide_bar} {percent}% ETA {eta}"),
+        )
+    };
     let locked_graph = Arc::new(RwLock::new(&mut di.graph));
-    // let mut progress = Progress::new(indices.len());
     indices.into_par_iter().for_each(|i| {
-        // noisy!({
-        //     progress.print(i);
-        // });
+        noisy!({
+            progress.inc(1);
+        });
         let idx = petgraph::graph::NodeIndex::new(i);
 
         let walker = {
@@ -113,6 +119,7 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
         }
     });
     di.metadata.dedup = DedupAwareness::Aware;
+    progress.finish_and_clear();
     di.record_metadata();
     Ok(())
 }

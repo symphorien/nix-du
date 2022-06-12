@@ -41,25 +41,3 @@ macro_rules! die {
         }
     }
 }
-
-pub struct Progress {
-    increment: usize,
-    target: usize,
-}
-
-impl Progress {
-    pub fn new(max: usize) -> Progress {
-        let increment = (max / 100) + 1;
-        Progress {
-            increment,
-            target: increment,
-        }
-    }
-
-    pub fn print(&mut self, current: usize) {
-        if current > self.target {
-            self.target += self.increment;
-            eprint!("{}%\r", current / self.increment);
-        }
-    }
-}

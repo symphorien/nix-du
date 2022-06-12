@@ -28,6 +28,7 @@ walkdir = "2"
 enum-map = "1"
 rayon = "1"
 dashmap = "5"
+indicatif = "0.16"
 
 [dependencies.clap]
 version = "3"
