@@ -94,16 +94,16 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
                     }
                     Entry::Occupied(mut e) => {
                         // this inode is deduplicated
-                        let filesize = filesize.unwrap_or_else(|| {
-                            n_stat_after += 1;
-                            entry.metadata().unwrap().len()
-                        });
                         let v = e.get_mut();
                         let new_node = match *v {
                             Owner::One(n) => {
                                 // second time we see this inode;
                                 // let's create a "shared" node for these files
                                 let name = di.graph[index].name().into_owned();
+                                let filesize = filesize.unwrap_or_else(|| {
+                                    n_stat_after += 1;
+                                    entry.metadata().unwrap().len()
+                                });
                                 let new_node = di.graph.add_node(DepNode {
                                     description: NodeDescription::Shared(name),
                                     size: filesize,
@@ -116,6 +116,7 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
                             }
                             Owner::Several(n) => n,
                         };
+                        let filesize = di.graph[new_node].size;
                         di.graph.add_edge(index, new_node, ());
                         let w = &mut di.graph[index];
                         w.size -= filesize;
