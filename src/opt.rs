@@ -2,7 +2,6 @@ use crate::depgraph::*;
 use crate::msg::*;
 
 use petgraph::prelude::NodeIndex;
-use std::cell::Cell;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 use std::ffi::OsString;
@@ -81,19 +80,19 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
                             let name = di.graph[idx].name().into_owned();
                             let new_node = di.graph.add_node(DepNode {
                                 description: NodeDescription::Shared(name),
-                                size: Cell::new(metadata.len()),
+                                size: metadata.len(),
                             });
                             di.graph.add_edge(n, new_node, ());
-                            let new_w = &di.graph[n];
-                            new_w.size.set(new_w.size.get() - metadata.len());
+                            let new_w = &mut di.graph[n];
+                            new_w.size -= metadata.len();
                             *v = Owner::Several(new_node);
                             new_node
                         }
                         Owner::Several(n) => n,
                     };
                     di.graph.add_edge(idx, new_node, ());
-                    let w = &di.graph[idx];
-                    w.size.set(w.size.get() - metadata.len());
+                    let w = &mut di.graph[idx];
+                    w.size -= metadata.len();
                 }
             }
         }

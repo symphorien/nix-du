@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: LGPL-3.0
 
 use std;
-use std::cell::Cell;
 use std::collections;
 
-use petgraph::visit::EdgeRef;
+use petgraph::visit::{EdgeFiltered, EdgeRef};
 
 use crate::depgraph::*;
 
@@ -27,7 +26,7 @@ pub fn merge_transient_roots(mut di: DepInfos) -> DepInfos {
 
     let fake_root_idx = di.graph.add_node(DepNode {
         description: NodeDescription::Transient,
-        size: Cell::new(0),
+        size: 0,
     });
     di.graph.add_edge(di.root, fake_root_idx, ());
     for idx in targets {
@@ -82,8 +81,8 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
             std::mem::swap(&mut w, &mut di.graph[idx]);
             new_graph.add_node(w)
         });
-        let new_w = &new_graph[*new_node];
-        new_w.size.set(new_w.size.get() + di.graph[idx].size.get());
+        let new_w = &mut new_graph[*new_node];
+        new_w.size = new_w.size + di.graph[idx].size;
     }
 
     let new_root = new_ids[&g[di.root]];
@@ -183,8 +182,6 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
     let mut toposort =
         petgraph::algo::toposort(&di.graph, None).expect("keep argument is not acyclic");
     {
-        // borrow frozen
-        let frozen = petgraph::graph::Frozen::new(&mut di.graph);
         for old in toposort.drain(..).rev() {
             if old == di.root
                 || !(new_ids.contains_key(&old) || ondemand_weights.contains_key(&old))
@@ -199,13 +196,14 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
                 // borrow of new_ids
                 // this filter visits the graph starting at old
                 // stopping when reaching a kept child
-                let filtered = petgraph::visit::EdgeFiltered::from_fn(&*frozen, |e| {
+                let filter_fn = |e: petgraph::graph::EdgeReference<_, _>| {
                     e.source() == old || !new_ids.contains_key(&e.source())
-                });
-                let mut dfs = petgraph::visit::Dfs::new(&filtered, old);
-                let old_ = dfs.next(&filtered); // skip old
+                };
+                let mut dfs =
+                    petgraph::visit::Dfs::new(&EdgeFiltered::from_fn(&di.graph, filter_fn), old);
+                let old_ = dfs.next(&EdgeFiltered::from_fn(&di.graph, filter_fn)); // skip old
                 debug_assert_eq!(Some(old), old_);
-                while let Some(idx) = dfs.next(&filtered) {
+                while let Some(idx) = dfs.next(&EdgeFiltered::from_fn(&di.graph, filter_fn)) {
                     if let Some(&new2) = new_ids.get(&idx) {
                         // kept child
                         // let's add an edge from old to this child
@@ -229,8 +227,8 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
                             ondemand_weights.get_mut(&old).unwrap_or_else(|| {
                                 &mut new_graph[old_id.unwrap_or_else(|| new_ids[&old])]
                             });
-                        wup.size.set(wup.size.get() + frozen[idx].size.get());
-                        frozen[idx].size.set(0);
+                        wup.size = wup.size + di.graph[idx].size;
+                        di.graph[idx].size = 0;
                     }
                 }
             }
@@ -248,11 +246,11 @@ pub fn keep<T: Fn(&DepNode) -> bool>(mut di: DepInfos, filter: T) -> DepInfos {
         }
     }
     // to keep the size unchanged, we create a dummy root with the remaining size
-    let remaining_size = ondemand_weights.values().map(|drv| drv.size.get()).sum();
+    let remaining_size = ondemand_weights.values().map(|drv| drv.size).sum();
     if remaining_size > 0 {
         let fake_root = DepNode {
             description: NodeDescription::FilteredOut,
-            size: Cell::new(remaining_size),
+            size: remaining_size,
         };
         let id = new_graph.add_node(fake_root);
         new_graph.add_edge(new_root, id, ());
@@ -338,10 +336,7 @@ mod tests {
             } else {
                 3 + 2 * (i as u64)
             };
-            let w = DepNode {
-                description,
-                size: Cell::new(size),
-            };
+            let w = DepNode { description, size };
             g.add_node(w);
         }
         for i in 0..size {
@@ -359,7 +354,7 @@ mod tests {
         let root = g.add_node(if rooted {
             DepNode {
                 description: Path("root".into()),
-                size: Cell::new(42),
+                size: 42,
             }
         } else {
             DepNode::dummy()
@@ -408,7 +403,7 @@ mod tests {
     }
     fn size_to_old_nodes(drv: &DepNode) -> collections::BTreeSet<NodeIndex> {
         (0..62)
-            .filter(|i| drv.size.get() & (1u64 << i) != 0)
+            .filter(|i| drv.size & (1u64 << i) != 0)
             .map(NodeIndex::from)
             .collect()
     }
@@ -610,7 +605,7 @@ mod tests {
     #[test]
     fn check_keep() {
         let filter_drv = |drv: &DepNode| {
-            let log = (drv.size.get() as f64).log2();
+            let log = (drv.size as f64).log2();
             log.round() as u64 % 3 == 0 // third of the drvs
         };
         for _ in 0..50 {
@@ -708,7 +703,7 @@ mod tests {
                     continue;
                 }
                 let top = NodeIndex::from(path_to_old_size(drv));
-                assert!(drv.size.get() & (1u64 << top.index()) != 0);
+                assert!(drv.size & (1u64 << top.index()) != 0);
                 for child in size_to_old_nodes(drv) {
                     assert!(
                         petgraph::algo::has_path_connecting(

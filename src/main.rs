@@ -222,12 +222,7 @@ fn main() {
     let mut min_size = args.min_size.map(|s| s.as_u64()).unwrap_or(0);
     if let Some(n_nodes) = args.nodes {
         if (n_nodes as usize) < g.graph.node_count() {
-            let mut sizes: Vec<u64> = g
-                .graph
-                .raw_nodes()
-                .iter()
-                .map(|n| n.weight.size.get())
-                .collect();
+            let mut sizes: Vec<u64> = g.graph.raw_nodes().iter().map(|n| n.weight.size).collect();
             sizes.sort_unstable();
             min_size = sizes[sizes.len().saturating_sub(n_nodes as usize)] as u64;
         }
@@ -238,7 +233,7 @@ fn main() {
      *******************/
 
     if min_size > 0 {
-        g = reduction::keep(g, |d: &depgraph::DepNode| d.size.get() >= min_size);
+        g = reduction::keep(g, |d: &depgraph::DepNode| d.size >= min_size);
     }
     msg!(
         "{} nodes, {} edges.\n",

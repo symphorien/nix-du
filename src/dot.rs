@@ -20,11 +20,11 @@ impl Display for GraphvizColor {
 pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Result<()> {
     // compute color gradient
     // first, min and max
-    let mut min = dependencies.graph.raw_nodes()[0].weight.size.get();
+    let mut min = dependencies.graph.raw_nodes()[0].weight.size;
     let mut max = min;
     for node in &dependencies.graph.raw_nodes()[1..] {
-        max = std::cmp::max(node.weight.size.get(), max);
-        min = std::cmp::min(node.weight.size.get(), min);
+        max = std::cmp::max(node.weight.size, max);
+        min = std::cmp::min(node.weight.size, min);
     }
     let span = (max - min) as f64;
 
@@ -68,8 +68,8 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
         if idx == dependencies.root {
             continue;
         };
-        let size = ByteSize::b(node.size.get());
-        let color: Hsv<_, f32> = gradient.get(scale(node.size.get()));
+        let size = ByteSize::b(node.size);
+        let color: Hsv<_, f32> = gradient.get(scale(node.size));
         let (_, textcolor) = textcolors
             .iter()
             .max_by_key(|(c, _name)| (c.get_contrast_ratio(&color) * 1000.) as u64)
