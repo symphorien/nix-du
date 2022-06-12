@@ -1,11 +1,11 @@
 use crate::depgraph::*;
 // use crate::msg::*;
 
+use dashmap::DashMap;
 use petgraph::prelude::NodeIndex;
 use rayon::prelude::*;
-use std::collections::hash_map::Entry;
-use std::collections::HashMap;
-use std::io::Result;
+use dashmap::mapref::entry::Entry;
+use std::{io::Result, sync::Arc};
 use std::iter::once;
 use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
@@ -30,9 +30,10 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
     // forall store path containing this file, then there is an edge from the
     // corresponding node to this files's node.
     // In this case, parents do not count this file's size in their size.
-    let mut inode_to_owner = HashMap::new();
+    let inode_to_owner = Arc::new(DashMap::new());
+    let map_ref = &inode_to_owner;
 
-    let paths: Vec<(petgraph::graph::NodeIndex, PathBuf)> = di.graph.raw_nodes().par_iter().enumerate().filter_map(|(i, r)| {
+    let paths: Vec<(usize, PathBuf)> = di.graph.raw_nodes().par_iter().enumerate().filter_map(|(i, r)| {
         // roots are not necessary readable, and anyway they are symlinks
         if r.weight.kind() != NodeKind::Path {
             return None
@@ -43,7 +44,7 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
         if path.symlink_metadata().unwrap().file_type().is_symlink() {
             return None
         }
-        Some((petgraph::graph::NodeIndex::new(i), path.to_path_buf()))
+        Some((i, path.to_path_buf()))
     }).collect();
 
     let iter = paths
@@ -57,8 +58,13 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
                         if !entry.file_type().is_file() {
                             return None;
                         }
-                        let metadata = entry.metadata().unwrap();
-                        Some((index, entry.ino(), metadata.len()))
+                        let inode = entry.ino();
+                        let filesize = if map_ref.contains_key(&inode) {
+                            Some(entry.metadata().unwrap().len())
+                        } else {
+                            None
+                        };
+                        Some((index, entry, filesize))
                     })
                     .transpose()
             })
@@ -72,20 +78,26 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
         },
         || {
             let mut n = 0;
+            let mut n_stat_after = 0;
             while let Ok(entry) = recv.recv() {
             // for entry in recv {
-                let (index, inode, filesize) = entry.unwrap();
+                let (index, entry, filesize) = entry.unwrap();
                 n+=1;
                 if n % 100_000 == 0 {
                     dbg!(recv.len());
                 }
-                match inode_to_owner.entry(inode) {
+                let index = petgraph::graph::NodeIndex::new(index);
+                match inode_to_owner.entry(entry.ino()) {
                     Entry::Vacant(e) => {
                         // first time we see this inode
                         e.insert(Owner::One(index));
                     }
                     Entry::Occupied(mut e) => {
                         // this inode is deduplicated
+                        let filesize = filesize.unwrap_or_else(|| {
+                            n_stat_after += 1;
+                            entry.metadata().unwrap().len()
+                        });
                         let v = e.get_mut();
                         let new_node = match *v {
                             Owner::One(n) => {
@@ -110,9 +122,11 @@ pub fn refine_optimized_store(mut di: DepInfos) -> Result<DepInfos> {
                     }
                 }
             }
+            dbg!(n_stat_after);
+            dbg!(n);
         },
     );
-    dbg!(inode_to_owner.values().filter(|x| matches!(x, Owner::One(_))).count());
+    dbg!(inode_to_owner.iter().filter(|x| matches!(x.value(), Owner::One(_))).count());
     dbg!(inode_to_owner.len());
     di.metadata.dedup = DedupAwareness::Aware;
     di.record_metadata();

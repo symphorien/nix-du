@@ -28,6 +28,7 @@ walkdir = "2"
 enum-map = "1"
 rayon = "1"
 crossbeam-channel = "0.5"
+dashmap = "5"
 
 [dependencies.clap]
 version = "3"
