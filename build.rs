@@ -1,6 +1,9 @@
 use std::path::PathBuf;
-
 // SPDX-License-Identifier: LGPL-3.0
+
+fn v(s: &str) -> versions::Versioning {
+    versions::Versioning::new(s).unwrap_or_else(|| panic!("could not parse version {}", s))
+}
 
 fn main() {
     // this build script only depends on the wrapper
@@ -12,7 +15,8 @@ fn main() {
         .atleast_version("2.2")
         .probe("nix-main")
         .unwrap();
-    println!("Found nix version {}", &nix.version);
+    eprintln!("Found nix version {}", &nix.version);
+    let nix_version = v(&nix.version);
 
     // compile libnix_adapter.a
     let mut builder = cc::Build::new();
@@ -20,23 +24,27 @@ fn main() {
         .cpp(true) // Switch to C++ library compilation.
         .opt_level(2) // needed for fortify hardening included by nix
         .file("wrapper.cpp");
-    let standard = if nix.version.as_str() >= "2.3" {
+    let standard = if nix_version >= v("2.3") {
         "-std=c++17"
     } else {
         "-std=c++14"
     };
     builder.flag(standard);
-    let version = if nix.version.as_str() >= "2.8" {
+    let version = if nix_version >= v("2.8") {
         208usize
-    } else if nix.version.as_str() >= "2.7" {
+    } else if nix_version >= v("2.7") {
         207usize
-    } else if nix.version.as_str() >= "2.4" {
+    } else if nix_version >= v("2.4") {
         204
-    } else if nix.version.as_str() >= "2.3" {
+    } else if nix_version >= v("2.3") {
         203
-    } else {
+    } else if nix_version >= v("2.2") {
         202
+    } else {
+        eprintln!("warning: could not compare version {nix_version} to known nix versions, attempting nix 2.8 wrapper");
+        208
     };
+    eprintln!("building with NIXVER={version}");
     builder.define("NIXVER", version.to_string().as_str());
     builder.compile("libnix_adapter.a");
 

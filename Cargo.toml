@@ -10,11 +10,13 @@ edition = "2018"
 panic = "abort"
 [profile.release]
 panic = "abort"
+debug = true
 
 [build-dependencies]
 cc = "1.0"
 pkg-config = "0.3"
 bindgen = "0.60"
+versions = "4"
 
 [dependencies]
 petgraph = "0.6"
