@@ -7,10 +7,12 @@ use std::borrow::Cow;
 #[cfg(test)]
 use std::collections;
 use std::ffi::{CStr, OsStr, OsString};
-use std::fmt;
+use std::fmt::{self, Display};
 use std::os::raw::c_void;
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::ffi::OsStringExt;
+use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 use std::vec::Vec;
 
 use petgraph::prelude::NodeIndex;
@@ -18,6 +20,8 @@ use petgraph::visit::Dfs;
 use petgraph::visit::IntoNodeReferences;
 
 use enum_map::EnumMap;
+
+use lazy_static::lazy_static;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum NodeKind {
@@ -73,29 +77,134 @@ pub enum NodeDescription {
 
 const SHARED_PREFIX: &[u8] = b"shared:";
 
+/// Converts `/home/symphorien/.cache/lorri/gc_roots/02ebed43adca1d7ca863ce9b0a537205/gc_root/shell_gc_root/` into `/home/symphorien/src/lorri/tests/integration/bug23_gopath/shell.nix`
+fn resolve_lorri_root(path: &[u8]) -> std::io::Result<PathBuf> {
+    let path = std::path::Path::new(std::ffi::OsStr::from_bytes(path));
+    let mut path = match path.parent() {
+        Some(p) => p.to_owned(),
+        None => {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "resolving / as lorri root",
+            ))
+        }
+    };
+    path.push("nix_file");
+    std::fs::read_link(path)
+}
+
+/// A struct for human readable age of a link
+///
+/// displays as `, 3d ago` where units are d=day, m=month and y=year.
+struct LinkAge(Option<SystemTime>);
+impl Display for LinkAge {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const DAY: Duration = Duration::from_secs(3600 * 24);
+        const MONTH: Duration = Duration::from_secs(3600 * 24 * 30);
+        const YEAR: Duration = Duration::from_secs(3600 * 24 * 365);
+        if let Some(t) = &self.0 {
+            if let Ok(duration) = t.elapsed() {
+                return if duration < DAY {
+                    write!(f, ", today")
+                } else if duration < MONTH {
+                    write!(f, ", {}d ago", duration.as_secs() / DAY.as_secs())
+                } else if duration < YEAR {
+                    write!(f, ", {}m ago", duration.as_secs() / MONTH.as_secs())
+                } else {
+                    write!(f, ", {}y ago", duration.as_secs() / YEAR.as_secs())
+                };
+            }
+        }
+        Ok(())
+    }
+}
+
 impl NodeDescription {
-    /// Return `blah` when the path of the
-    /// derivation is `/nix/store/<hash>-blah`
-    /// In case of failure, may return a bigger
-    /// slice of the path.
+    /// a short but human readable description of the node
+    /// for a store path, only shows the name
+    /// for a gc root, tells if it's a per-user profile, a NixOS generation, or a lorri gc
+    /// does some amount of work, so you might want to cache it.
     pub fn name(&self) -> Cow<[u8]> {
         use self::NodeDescription::*;
+        lazy_static! {
+            static ref STORE_PATH: regex::bytes::Regex =
+                regex::bytes::Regex::new(r"^/(?:.*)/[a-z0-9]*-([^/]*)$")
+                    .expect("regex compilation failed");
+            static ref PER_USER_PROFILE: regex::Regex =
+                regex::Regex::new(r"^/(?:.*)/profiles/per-user/([^/]*)/([^/]*)-([0-9]*)-link$")
+                    .expect("regex compilation failed");
+            static ref SYSTEM_PROFILE: regex::Regex =
+                regex::Regex::new(r"^/(?:.*)/profiles/system-([0-9]*)-link$")
+                    .expect("regex compilation failed");
+            static ref LORRI: regex::Regex = regex::Regex::new(
+                r"^/home/([^/]*)/.cache/lorri/gc_roots/(?:[^/]*)/gc_root/shell_gc_root$"
+            )
+            .expect("regex compilation failed");
+        };
         match self {
-            Path(path) => {
-                let whole = &path;
-                let inner = match memchr::memrchr(b'/', whole) {
-                    None => whole,
-                    Some(i) => {
-                        let whole = &whole[i + 1..];
-                        match memchr::memchr(b'-', whole) {
-                            None => whole,
-                            Some(i) => &whole[i + 1..],
+            Path(path) => match STORE_PATH.captures(&path) {
+                Some(c) => {
+                    let name = c.get(1).unwrap().as_bytes();
+                    Cow::Borrowed(name)
+                }
+                None => Cow::Borrowed(&path),
+            },
+            Link(path) => match std::str::from_utf8(path) {
+                Ok(path_str) => {
+                    let link_age = match std::path::Path::new(std::ffi::OsStr::from_bytes(path))
+                        .symlink_metadata()
+                        .map(|m| m.modified())
+                    {
+                        Ok(Ok(time)) => LinkAge(Some(time)),
+                        _ => LinkAge(None),
+                    };
+                    let fancy_desc = match PER_USER_PROFILE.captures(&path_str) {
+                        Some(c) => {
+                            let user = c.get(1).unwrap().as_str();
+                            let profile = c.get(2).unwrap().as_str();
+                            let gen = c.get(3).unwrap().as_str();
+                            let desc = if profile == "profile" {
+                                format!("generation {gen} of {user}'s profile{link_age}")
+                            } else {
+                                format!("generation {gen} of {user}'s profile {profile}{link_age}")
+                            };
+                            Some(desc)
                         }
+                        None => match SYSTEM_PROFILE.captures(&path_str) {
+                            Some(c) => {
+                                let gen = c.get(1).unwrap().as_str();
+                                let desc = format!("NixOS generation {gen}{link_age}");
+                                Some(desc)
+                            }
+                            None => match LORRI.captures(&path_str) {
+                                Some(c) => {
+                                    let user = c.get(1).unwrap().as_str();
+                                    match resolve_lorri_root(path) {
+                                        Ok(nix_file) => {
+                                            let desc = format!(
+                                                "{user}'s lorri cache for {}{link_age}",
+                                                nix_file.display()
+                                            );
+                                            Some(desc)
+                                        }
+                                        Err(_) => None,
+                                    }
+                                }
+                                None => None,
+                            },
+                        },
+                    };
+                    match (&link_age, fancy_desc) {
+                        (_, Some(f)) => Cow::Owned(f.into_bytes()),
+                        (LinkAge(Some(_)), None) => {
+                            Cow::Owned(format!("{path_str}{link_age}").into_bytes())
+                        }
+                        _ => Cow::Borrowed(path),
                     }
-                };
-                Cow::Borrowed(inner)
-            }
-            Link(path) | Memory(path) | Temporary(path) => Cow::Borrowed(&path),
+                }
+                Err(_) => Cow::Borrowed(path),
+            },
+            Memory(path) | Temporary(path) => Cow::Borrowed(&path),
             Dummy => Cow::Borrowed(b"{dummy}"),
             FilteredOut => Cow::Borrowed(b"{filtered out}"),
             Transient => Cow::Borrowed(b"{transient}"),

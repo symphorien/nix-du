@@ -1,6 +1,7 @@
 let
   isDerivation = x: (x.type or null) == "derivation";
-  allNixVersions = pkgs: [ pkgs.nixStable pkgs.nixUnstable ] ++ (builtins.filter isDerivation (builtins.attrValues (pkgs.nixVersions or { })));
+  tryEvalOpt = x: let res = builtins.tryEval x; in if res.success then res.value else null;
+  allNixVersions = pkgs: [ pkgs.nixStable pkgs.nixUnstable ] ++ (builtins.filter isDerivation (map tryEvalOpt (builtins.attrValues (pkgs.nixVersions or { }))));
 in
 map
   (url:

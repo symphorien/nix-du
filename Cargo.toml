@@ -29,6 +29,8 @@ enum-map = "1"
 rayon = "1"
 dashmap = "5"
 indicatif = "0.16"
+lazy_static = "1"
+regex = "1"
 
 [dependencies.clap]
 version = "3"
@@ -37,5 +39,4 @@ features = ["derive", "suggestions", "color", "wrap_help"]
 [dev-dependencies]
 rand = "0.8"
 cli_test_dir = "0.1"
-regex = "1"
 which = "4"

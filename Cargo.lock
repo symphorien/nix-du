@@ -442,6 +442,7 @@ dependencies = [
  "enum-map",
  "fixedbitset",
  "indicatif",
+ "lazy_static",
  "memchr",
  "palette",
  "petgraph",

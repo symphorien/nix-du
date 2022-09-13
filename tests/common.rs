@@ -140,7 +140,8 @@ pub fn parse_out(out: String) -> Output {
     let mut res = Output::new();
     let mut id_to_node = std::collections::BTreeMap::new();
     let node_re =
-        regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([ {}:a-z.]+) \(([^)]+)\)"#).unwrap();
+        regex::Regex::new(r#"N(\d+)\[.*label="(?:.*/)?([ {}:a-z.]+)(?:, today)? \(([^)]+)\)"#)
+            .unwrap();
     let edge_re = regex::Regex::new(r"N(\d+) -> N(\d+)").unwrap();
     for node in node_re.captures_iter(&out) {
         println!("node: {:?}", node);

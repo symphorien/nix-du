@@ -5,7 +5,7 @@ let
 in
 pkgs.mkShell {
   inputsFrom = [ nix-du nix-du.tested ];
-  nativeBuildInputs = with pkgs; [ rust-bindgen rls rustfmt cargo-outdated crate2nix ];
+  nativeBuildInputs = with pkgs; [ rust-analyzer rustfmt cargo-outdated crate2nix ];
 
   RUST_BACKTRACE=1;
 }

@@ -1,3 +1,7 @@
+master:
+
+* show a human readable description of gc roots along with their age when possible
+
 v0.6.0:
 
 * update some dependencies. The CLI parsing may have unintentionally changed.
