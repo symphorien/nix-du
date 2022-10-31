@@ -33,7 +33,7 @@ lazy_static = "1"
 regex = "1"
 
 [dependencies.clap]
-version = "3"
+version = "4"
 features = ["derive", "suggestions", "color", "wrap_help"]
 
 [dev-dependencies]

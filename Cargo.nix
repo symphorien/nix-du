@@ -7,11 +7,7 @@
 , pkgs ? import nixpkgs { config = {}; }
 , lib ? pkgs.lib
 , stdenv ? pkgs.stdenv
-, buildRustCrateForPkgs ? if buildRustCrate != null
-    then lib.warn "crate2nix: Passing `buildRustCrate` as argument to Cargo.nix is deprecated. If you don't customize `buildRustCrate`, replace `callPackage ./Cargo.nix {}` by `import ./Cargo.nix { inherit pkgs; }`, and if you need to customize `buildRustCrate`, use `buildRustCrateForPkgs` instead." (_: buildRustCrate)
-    else pkgs: pkgs.buildRustCrate
-  # Deprecated
-, buildRustCrate ? null
+, buildRustCrateForPkgs ? pkgs: pkgs.buildRustCrate
   # This is used as the `crateOverrides` argument for `buildRustCrate`.
 , defaultCrateOverrides ? pkgs.defaultCrateOverrides
   # The features to enable for the root_crate or the workspace_members.
@@ -387,10 +383,10 @@ rec {
       };
       "clap" = rec {
         crateName = "clap";
-        version = "3.2.23";
+        version = "4.0.18";
         edition = "2021";
         crateBin = [];
-        sha256 = "19bkwkj49ha7mlip0gxsqb9xmd3jpr7ghvcx1hkx6icqrd2mqrbi";
+        sha256 = "0jxh5as3ax8mdw0zm465w1zajjzpia5x3rmgbwr45pnj9rv6fn1k";
         dependencies = [
           {
             name = "atty";
@@ -409,10 +405,6 @@ rec {
           {
             name = "clap_lex";
             packageId = "clap_lex";
-          }
-          {
-            name = "indexmap";
-            packageId = "indexmap";
           }
           {
             name = "once_cell";
@@ -434,44 +426,27 @@ rec {
             packageId = "terminal_size 0.2.1";
             optional = true;
           }
-          {
-            name = "textwrap";
-            packageId = "textwrap";
-            usesDefaultFeatures = false;
-          }
         ];
         features = {
-          "atty" = [ "dep:atty" ];
-          "backtrace" = [ "dep:backtrace" ];
-          "cargo" = [ "once_cell" ];
-          "clap_derive" = [ "dep:clap_derive" ];
-          "color" = [ "atty" "termcolor" ];
-          "debug" = [ "clap_derive/debug" "backtrace" ];
-          "default" = [ "std" "color" "suggestions" ];
-          "deprecated" = [ "clap_derive/deprecated" ];
-          "derive" = [ "clap_derive" "once_cell" ];
-          "once_cell" = [ "dep:once_cell" ];
-          "regex" = [ "dep:regex" ];
-          "std" = [ "indexmap/std" ];
-          "strsim" = [ "dep:strsim" ];
-          "suggestions" = [ "strsim" ];
-          "termcolor" = [ "dep:termcolor" ];
-          "terminal_size" = [ "dep:terminal_size" ];
-          "unicase" = [ "dep:unicase" ];
-          "unicode" = [ "textwrap/unicode-width" "unicase" ];
-          "unstable-doc" = [ "derive" "cargo" "wrap_help" "yaml" "env" "unicode" "regex" "unstable-replace" "unstable-grouped" ];
-          "unstable-v4" = [ "clap_derive/unstable-v4" "deprecated" ];
-          "wrap_help" = [ "terminal_size" "textwrap/terminal_size" ];
-          "yaml" = [ "yaml-rust" ];
-          "yaml-rust" = [ "dep:yaml-rust" ];
+          "cargo" = [ "dep:once_cell" ];
+          "color" = [ "dep:atty" "dep:termcolor" ];
+          "debug" = [ "clap_derive?/debug" "dep:backtrace" ];
+          "default" = [ "std" "color" "help" "usage" "error-context" "suggestions" ];
+          "deprecated" = [ "clap_derive?/deprecated" ];
+          "derive" = [ "dep:clap_derive" "dep:once_cell" ];
+          "suggestions" = [ "dep:strsim" "error-context" ];
+          "unicode" = [ "dep:unicode-width" "dep:unicase" ];
+          "unstable-doc" = [ "derive" "cargo" "wrap_help" "env" "unicode" "string" "unstable-replace" "unstable-grouped" ];
+          "unstable-v5" = [ "clap_derive?/unstable-v5" "deprecated" ];
+          "wrap_help" = [ "help" "dep:terminal_size" ];
         };
-        resolvedDefaultFeatures = [ "atty" "clap_derive" "color" "default" "derive" "once_cell" "std" "strsim" "suggestions" "termcolor" "terminal_size" "wrap_help" ];
+        resolvedDefaultFeatures = [ "color" "default" "derive" "error-context" "help" "std" "suggestions" "usage" "wrap_help" ];
       };
       "clap_derive" = rec {
         crateName = "clap_derive";
-        version = "3.2.18";
+        version = "4.0.18";
         edition = "2021";
-        sha256 = "0r9az0cl33xx0i9g18l56l3vd5ayjvcflvza2gdf8jwcab78n37a";
+        sha256 = "1wr8mk2shws1r10q46bhxqb94dqg681jg3n5l1fjvwra8bvb188n";
         procMacro = true;
         dependencies = [
           {
@@ -498,15 +473,15 @@ rec {
         ];
         features = {
           "raw-deprecated" = [ "deprecated" ];
-          "unstable-v4" = [ "deprecated" ];
+          "unstable-v5" = [ "deprecated" ];
         };
         resolvedDefaultFeatures = [ "default" ];
       };
       "clap_lex" = rec {
         crateName = "clap_lex";
-        version = "0.2.4";
+        version = "0.3.0";
         edition = "2021";
-        sha256 = "1ib1a9v55ybnaws11l63az0jgz5xiy24jkdgsmyl7grcm3sz4l18";
+        sha256 = "1a4dzbnlxiamfsn0pnkhn7n9bdfjh66j9fxm6mmr7d227vvrhh8d";
         dependencies = [
           {
             name = "os_str_bytes";
@@ -1012,7 +987,6 @@ rec {
           "serde" = [ "dep:serde" ];
           "serde-1" = [ "serde" ];
         };
-        resolvedDefaultFeatures = [ "std" ];
       };
       "indicatif" = rec {
         crateName = "indicatif";
@@ -1283,9 +1257,17 @@ rec {
         version = "0.6.0";
         edition = "2018";
         crateBin = [
-          { name = "nix-du"; path = "src/main.rs"; }
+          {
+            name = "nix-du";
+            path = "src/main.rs";
+            requiredFeatures = [ ];
+          }
         ];
-        src = lib.cleanSourceWith { filter = sourceFilter;  src = ./.; };
+        # We can't filter paths with references in Nix 2.4
+        # See https://github.com/NixOS/nix/issues/5410
+        src = if (lib.versionOlder builtins.nixVersion "2.4pre20211007")
+          then lib.cleanSourceWith { filter = sourceFilter;  src = ./.; }
+          else ./.;
         authors = [
           "Symphorien Gibol <symphorien+git@xlumurb.eu>"
         ];
@@ -2222,6 +2204,7 @@ rec {
           {
             name = "errno";
             packageId = "errno";
+            rename = "libc_errno";
             usesDefaultFeatures = false;
           }
           {
@@ -2460,31 +2443,6 @@ rec {
         ];
 
       };
-      "textwrap" = rec {
-        crateName = "textwrap";
-        version = "0.16.0";
-        edition = "2021";
-        sha256 = "0gbwkjf15l6p3x2rkr75fa4cpcs1ly4c8pmlfx5bl6zybcm24ai2";
-        authors = [
-          "Martin Geisler <martin@geisler.net>"
-        ];
-        dependencies = [
-          {
-            name = "terminal_size";
-            packageId = "terminal_size 0.2.1";
-            optional = true;
-          }
-        ];
-        features = {
-          "default" = [ "unicode-linebreak" "unicode-width" "smawk" ];
-          "hyphenation" = [ "dep:hyphenation" ];
-          "smawk" = [ "dep:smawk" ];
-          "terminal_size" = [ "dep:terminal_size" ];
-          "unicode-linebreak" = [ "dep:unicode-linebreak" ];
-          "unicode-width" = [ "dep:unicode-width" ];
-        };
-        resolvedDefaultFeatures = [ "terminal_size" ];
-      };
       "toml" = rec {
         crateName = "toml";
         version = "0.5.9";
@@ -2630,12 +2588,12 @@ rec {
           {
             name = "winapi-i686-pc-windows-gnu";
             packageId = "winapi-i686-pc-windows-gnu";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-pc-windows-gnu");
           }
           {
             name = "winapi-x86_64-pc-windows-gnu";
             packageId = "winapi-x86_64-pc-windows-gnu";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-gnu");
           }
         ];
         features = {
@@ -2693,52 +2651,52 @@ rec {
           {
             name = "windows_aarch64_msvc";
             packageId = "windows_aarch64_msvc 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "aarch64-pc-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-pc-windows-msvc");
           }
           {
             name = "windows_aarch64_msvc";
             packageId = "windows_aarch64_msvc 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "aarch64-uwp-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-uwp-windows-msvc");
           }
           {
             name = "windows_i686_gnu";
             packageId = "windows_i686_gnu 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-pc-windows-gnu");
           }
           {
             name = "windows_i686_gnu";
             packageId = "windows_i686_gnu 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-uwp-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-uwp-windows-gnu");
           }
           {
             name = "windows_i686_msvc";
             packageId = "windows_i686_msvc 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-pc-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-pc-windows-msvc");
           }
           {
             name = "windows_i686_msvc";
             packageId = "windows_i686_msvc 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-uwp-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-uwp-windows-msvc");
           }
           {
             name = "windows_x86_64_gnu";
             packageId = "windows_x86_64_gnu 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-gnu");
           }
           {
             name = "windows_x86_64_gnu";
             packageId = "windows_x86_64_gnu 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-uwp-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-uwp-windows-gnu");
           }
           {
             name = "windows_x86_64_msvc";
             packageId = "windows_x86_64_msvc 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-msvc");
           }
           {
             name = "windows_x86_64_msvc";
             packageId = "windows_x86_64_msvc 0.36.1";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-uwp-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-uwp-windows-msvc");
           }
         ];
         features = {
@@ -3428,62 +3386,62 @@ rec {
           {
             name = "windows_aarch64_gnullvm";
             packageId = "windows_aarch64_gnullvm";
-            target = { target, features }: (stdenv.hostPlatform.config == "aarch64-pc-windows-gnullvm");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-pc-windows-gnullvm");
           }
           {
             name = "windows_aarch64_msvc";
             packageId = "windows_aarch64_msvc 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "aarch64-pc-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-pc-windows-msvc");
           }
           {
             name = "windows_aarch64_msvc";
             packageId = "windows_aarch64_msvc 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "aarch64-uwp-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "aarch64-uwp-windows-msvc");
           }
           {
             name = "windows_i686_gnu";
             packageId = "windows_i686_gnu 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-pc-windows-gnu");
           }
           {
             name = "windows_i686_gnu";
             packageId = "windows_i686_gnu 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-uwp-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-uwp-windows-gnu");
           }
           {
             name = "windows_i686_msvc";
             packageId = "windows_i686_msvc 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-pc-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-pc-windows-msvc");
           }
           {
             name = "windows_i686_msvc";
             packageId = "windows_i686_msvc 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "i686-uwp-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "i686-uwp-windows-msvc");
           }
           {
             name = "windows_x86_64_gnu";
             packageId = "windows_x86_64_gnu 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-gnu");
           }
           {
             name = "windows_x86_64_gnu";
             packageId = "windows_x86_64_gnu 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-uwp-windows-gnu");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-uwp-windows-gnu");
           }
           {
             name = "windows_x86_64_gnullvm";
             packageId = "windows_x86_64_gnullvm";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-gnullvm");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-gnullvm");
           }
           {
             name = "windows_x86_64_msvc";
             packageId = "windows_x86_64_msvc 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-pc-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-pc-windows-msvc");
           }
           {
             name = "windows_x86_64_msvc";
             packageId = "windows_x86_64_msvc 0.42.0";
-            target = { target, features }: (stdenv.hostPlatform.config == "x86_64-uwp-windows-msvc");
+            target = { target, features }: (pkgs.rust.lib.toRustTarget stdenv.hostPlatform == "x86_64-uwp-windows-msvc");
           }
         ];
         features = {
@@ -3938,26 +3896,25 @@ rec {
   /* Target (platform) data for conditional dependencies.
     This corresponds roughly to what buildRustCrate is setting.
   */
-  defaultTarget = {
-    unix = true;
-    windows = false;
+  makeDefaultTarget = platform: {
+    unix = platform.isUnix;
+    windows = platform.isWindows;
     fuchsia = true;
     test = false;
 
-    # This doesn't appear to be officially documented anywhere yet.
-    # See https://github.com/rust-lang-nursery/rust-forge/issues/101.
-    os =
-      if stdenv.hostPlatform.isDarwin
-      then "macos"
-      else stdenv.hostPlatform.parsed.kernel.name;
-    arch = stdenv.hostPlatform.parsed.cpu.name;
+    /* We are choosing an arbitrary rust version to grab `lib` from,
+      which is unfortunate, but `lib` has been version-agnostic the
+      whole time so this is good enough for now.
+    */
+    os = pkgs.rust.lib.toTargetOs platform;
+    arch = pkgs.rust.lib.toTargetArch platform;
     family = "unix";
     env = "gnu";
     endian =
-      if stdenv.hostPlatform.parsed.cpu.significantByte.name == "littleEndian"
+      if platform.parsed.cpu.significantByte.name == "littleEndian"
       then "little" else "big";
-    pointer_width = toString stdenv.hostPlatform.parsed.cpu.bits;
-    vendor = stdenv.hostPlatform.parsed.vendor.name;
+    pointer_width = toString platform.parsed.cpu.bits;
+    vendor = platform.parsed.vendor.name;
     debug_assertions = false;
   };
 
@@ -4160,12 +4117,12 @@ rec {
     , crateConfigs ? crates
     , buildRustCrateForPkgsFunc
     , runTests
-    , target ? defaultTarget
+    , makeTarget ? makeDefaultTarget
     } @ args:
       assert (builtins.isAttrs crateConfigs);
       assert (builtins.isString packageId);
       assert (builtins.isList features);
-      assert (builtins.isAttrs target);
+      assert (builtins.isAttrs (makeTarget stdenv.hostPlatform));
       assert (builtins.isBool runTests);
       let
         rootPackageId = packageId;
@@ -4173,7 +4130,7 @@ rec {
           (
             args // {
               inherit rootPackageId;
-              target = target // { test = runTests; };
+              target = makeTarget stdenv.hostPlatform // { test = runTests; };
             }
           );
         # Memoize built packages so that reappearing packages are only built once.
@@ -4182,6 +4139,7 @@ rec {
           let
             self = {
               crates = lib.mapAttrs (packageId: value: buildByPackageIdForPkgsImpl self pkgs packageId) crateConfigs;
+              target = makeTarget pkgs.stdenv.hostPlatform;
               build = mkBuiltByPackageIdByPkgs pkgs.buildPackages;
             };
           in
@@ -4198,7 +4156,8 @@ rec {
                 (crateConfig'.devDependencies or [ ]);
             dependencies =
               dependencyDerivations {
-                inherit features target;
+                inherit features;
+                inherit (self) target;
                 buildByPackageId = depPackageId:
                   # proc_macro crates must be compiled for the build architecture
                   if crateConfigs.${depPackageId}.procMacro or false
@@ -4210,24 +4169,26 @@ rec {
               };
             buildDependencies =
               dependencyDerivations {
-                inherit features target;
+                inherit features;
+                inherit (self.build) target;
                 buildByPackageId = depPackageId:
                   self.build.crates.${depPackageId};
                 dependencies = crateConfig.buildDependencies or [ ];
               };
-            filterEnabledDependenciesForThis = dependencies: filterEnabledDependencies {
-              inherit dependencies features target;
-            };
             dependenciesWithRenames =
-              lib.filter (d: d ? "rename")
-                (
-                  filterEnabledDependenciesForThis
-                    (
-                      (crateConfig.buildDependencies or [ ])
-                      ++ (crateConfig.dependencies or [ ])
-                      ++ devDependencies
-                    )
-                );
+              let
+                buildDeps = filterEnabledDependencies {
+                  inherit features;
+                  inherit (self) target;
+                  dependencies = crateConfig.dependencies or [ ] ++ devDependencies;
+                };
+                hostDeps = filterEnabledDependencies {
+                  inherit features;
+                  inherit (self.build) target;
+                  dependencies = crateConfig.buildDependencies or [ ];
+                };
+              in
+              lib.filter (d: d ? "rename") (hostDeps ++ buildDeps);
             # Crate renames have the form:
             #
             # {
@@ -4302,7 +4263,7 @@ rec {
     else val;
 
   /* Returns various tools to debug a crate. */
-  debugCrate = { packageId, target ? defaultTarget }:
+  debugCrate = { packageId, target ? makeDefaultTarget stdenv.hostPlatform }:
     assert (builtins.isString packageId);
     let
       debug = rec {
@@ -4478,15 +4439,14 @@ rec {
       dependencies;
 
   /* Returns whether the given feature should enable the given dependency. */
-  doesFeatureEnableDependency = { name, rename ? null, ... }: feature:
+  doesFeatureEnableDependency = dependency: feature:
     let
+      name = dependency.rename or dependency.name;
       prefix = "${name}/";
       len = builtins.stringLength prefix;
       startsWithPrefix = builtins.substring 0 len feature == prefix;
     in
-    (rename == null && feature == name)
-    || (rename != null && rename == feature)
-    || startsWithPrefix;
+    feature == name || feature == "dep:" + name || startsWithPrefix;
 
   /* Returns the expanded features for the given inputFeatures by applying the
     rules in featureMap.
@@ -4521,7 +4481,9 @@ rec {
             let
               enabled = builtins.any (doesFeatureEnableDependency dependency) features;
             in
-            if (dependency.optional or false) && enabled then [ dependency.name ] else [ ]
+            if (dependency.optional or false) && enabled
+            then [ (dependency.rename or dependency.name) ]
+            else [ ]
         )
         dependencies;
     in

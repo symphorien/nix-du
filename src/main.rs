@@ -102,7 +102,7 @@ struct Args {
     min_size: Option<ByteSize>,
 
     /// Only keep the approximately N biggest nodes
-    #[clap(short = 'n', long, value_name = "N", conflicts_with = "min-size")]
+    #[clap(short = 'n', long, value_name = "N", conflicts_with = "min_size")]
     nodes: Option<u32>,
 
     /// Consider the dependencies of PATH instead of all gc roots
@@ -114,7 +114,7 @@ struct Args {
     dump: Option<PathBuf>,
 
     /// whether to take store optimisation into account: 0: no, 1: live paths, 2: all paths (default autodetect)
-    #[clap(short='O', long, value_name="N", possible_values = &["0", "1", "2", "auto"])]
+    #[clap(short='O', long, value_name="N", value_parser = ["0", "1", "2", "auto"])]
     opt_level: Option<String>,
 
     /// Don't print informationnal messages on stderr
