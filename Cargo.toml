@@ -28,7 +28,7 @@ walkdir = "2"
 enum-map = "1"
 rayon = "1"
 dashmap = "5"
-indicatif = "0.16"
+indicatif = "0.17"
 lazy_static = "1"
 regex = "1"
 

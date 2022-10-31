@@ -529,6 +529,11 @@ rec {
             packageId = "terminal_size 0.1.17";
           }
           {
+            name = "unicode-width";
+            packageId = "unicode-width";
+            optional = true;
+          }
+          {
             name = "winapi";
             packageId = "winapi";
             target = { target, features }: (target."windows" or false);
@@ -542,6 +547,7 @@ rec {
           "winapi-util" = [ "dep:winapi-util" ];
           "windows-console-colors" = [ "ansi-parsing" "regex" "winapi-util" ];
         };
+        resolvedDefaultFeatures = [ "ansi-parsing" "unicode-width" ];
       };
       "crossbeam-channel" = rec {
         crateName = "crossbeam-channel";
@@ -990,42 +996,37 @@ rec {
       };
       "indicatif" = rec {
         crateName = "indicatif";
-        version = "0.16.2";
+        version = "0.17.1";
         edition = "2018";
-        sha256 = "06xyjs0kzqiqkjn60n1miwm2l87sa9p2lmzz0ymq18y72z37s81d";
-        authors = [
-          "Armin Ronacher <armin.ronacher@active-4.com>"
-          "Dirkjan Ochtman <dirkjan@ochtman.nl>"
-        ];
+        sha256 = "0nskiyqjgg6y801iia0hxck00clnfvyrgqa51r72dbwb3rbckpdz";
         dependencies = [
           {
             name = "console";
             packageId = "console";
             usesDefaultFeatures = false;
-          }
-          {
-            name = "lazy_static";
-            packageId = "lazy_static";
+            features = [ "ansi-parsing" ];
           }
           {
             name = "number_prefix";
             packageId = "number_prefix";
           }
           {
-            name = "regex";
-            packageId = "regex";
-            usesDefaultFeatures = false;
-            features = [ "std" ];
+            name = "unicode-width";
+            packageId = "unicode-width";
+            optional = true;
           }
         ];
         features = {
+          "default" = [ "unicode-width" "console/unicode-width" ];
           "improved_unicode" = [ "unicode-segmentation" "unicode-width" "console/unicode-width" ];
+          "in_memory" = [ "vt100" ];
           "rayon" = [ "dep:rayon" ];
+          "tokio" = [ "dep:tokio" ];
           "unicode-segmentation" = [ "dep:unicode-segmentation" ];
           "unicode-width" = [ "dep:unicode-width" ];
-          "with_rayon" = [ "rayon" ];
+          "vt100" = [ "dep:vt100" ];
         };
-        resolvedDefaultFeatures = [ "default" ];
+        resolvedDefaultFeatures = [ "default" "unicode-width" ];
       };
       "io-lifetimes" = rec {
         crateName = "io-lifetimes";
@@ -2472,6 +2473,23 @@ rec {
           "David Tolnay <dtolnay@gmail.com>"
         ];
 
+      };
+      "unicode-width" = rec {
+        crateName = "unicode-width";
+        version = "0.1.10";
+        edition = "2015";
+        sha256 = "12vc3wv0qwg8rzcgb9bhaf5119dlmd6lmkhbfy1zfls6n7jx3vf0";
+        authors = [
+          "kwantam <kwantam@gmail.com>"
+          "Manish Goregaokar <manishsmail@gmail.com>"
+        ];
+        features = {
+          "compiler_builtins" = [ "dep:compiler_builtins" ];
+          "core" = [ "dep:core" ];
+          "rustc-dep-of-std" = [ "std" "core" "compiler_builtins" ];
+          "std" = [ "dep:std" ];
+        };
+        resolvedDefaultFeatures = [ "default" ];
       };
       "version_check" = rec {
         crateName = "version_check";
