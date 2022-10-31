@@ -69,7 +69,7 @@ This program outputs a graph on stdout in the dot format which may help you figu
 gc-roots should be removed in order to reclaim space in the nix store.
 
 To get started, if you are interested in freeing, say, 500MB, run \
-`nix-du -s 500MB | tred | dot -Tsvg > /tmp/blah.svg` and then view the result \
+`nix-du -s 500MB | dot -Tsvg > /tmp/blah.svg` and then view the result \
 in a browser or dedicated software like zgrviewer.
 
 Without options, `nix-du` outputs a graph where all nodes on which the same set of gc-roots depend \
@@ -82,15 +82,12 @@ this node, then you will free `30KB`. The label `foo` may or may not have a mean
 With some options, you can filter out some more nodes to make the graph more readable. Note that \
 gc-roots which don't match such filters but have a filtered-in child are kept.
 
-The graph can be further simplified by piping it to `tred` (transitive reduction) which is usually \
-provided as part of graphviz. This is strongly recommmended.
-
 nix-du can also be used to investigate disk usage in a nix profile. With option -r PATH \
 it will tell you which of the references of PATH to remove to gain space. Notably this \
 can be used with the system profile on NixOS:
-`nix-du -r /run/current-system/sw/ -s 500MB | tred`
+`nix-du -r /run/current-system/sw/ -s 500MB`
 or with a user wide profile:
-`nix-du -r ~/.nix-profile -s 500MB | tred`
+`nix-du -r ~/.nix-profile -s 500MB`
 ";
 
 /// Visualise what gc-roots you should delete to free space in your nix-store
@@ -240,6 +237,8 @@ fn main() {
         g.graph.node_count(),
         g.graph.edge_count()
     );
+
+    let g = reduction::transitive_reduction(g);
 
     /*******************
      * output handling *

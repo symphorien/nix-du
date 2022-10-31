@@ -3,7 +3,7 @@
 use std;
 use std::collections;
 
-use petgraph::visit::{EdgeFiltered, EdgeRef};
+use petgraph::visit::{DfsPostOrder, EdgeFiltered, EdgeRef, IntoEdgeReferences};
 
 use crate::depgraph::*;
 
@@ -34,6 +34,68 @@ pub fn merge_transient_roots(mut di: DepInfos) -> DepInfos {
         di.graph.remove_edge(edx);
         di.graph.add_edge(fake_root_idx, idx, ());
     }
+    di
+}
+
+/// Transitive reduction
+///
+/// Handles cycles by removing back edges first, then doing tred on the resulting dag, and then
+/// reapplying the back edges. This is probably not minimal, but I don't expect that many back
+/// edges.
+///
+/// Also preserves roots.
+///
+/// Panics if all nodes are not reachable from the root.
+pub fn transitive_reduction(mut di: DepInfos) -> DepInfos {
+    let mut toposort = Vec::with_capacity(di.graph.node_count());
+    let mut dfs = DfsPostOrder::new(&di.graph, di.root);
+    while let Some(node) = dfs.next(&di.graph) {
+        toposort.push(node)
+    }
+    assert_eq!(
+        toposort.len(),
+        di.graph.node_count(),
+        "transitive_reduction called with graph with unreachable nodes"
+    );
+    // toposort is reverse dfs post order
+    toposort.reverse();
+    // invert that
+    let mut reverse_topo = vec![0; di.graph.node_count()];
+    for (i, node) in toposort.iter().enumerate() {
+        reverse_topo[node.index()] = i;
+    }
+    // A DAG without the back edges.
+    let is_back_edge = |e: petgraph::graph::EdgeReference<_, _>| {
+        reverse_topo[e.source().index()] >= reverse_topo[e.target().index()]
+    };
+    let dag = petgraph::visit::EdgeFiltered::from_fn(&di.graph, |e| !is_back_edge(e));
+    let (intermediate, _) =
+        petgraph::algo::tred::dag_to_toposorted_adjacency_list::<_, u32>(&dag, &toposort);
+    let (tred, _) = petgraph::algo::tred::dag_transitive_reduction_closure(&intermediate);
+
+    // recreate the graph ...
+    let mut new = DepGraph::with_capacity(toposort.len(), di.graph.edge_count());
+    // ... with the same nodes
+    for node in di.graph.node_weights_mut() {
+        let mut dummy = DepNode::dummy();
+        std::mem::swap(&mut dummy, node);
+        new.add_node(dummy);
+    }
+    // ... the back edges and edges to roots
+    for e in di.graph.edge_references() {
+        if is_back_edge(e) || e.source() == di.root {
+            new.add_edge(e.source(), e.target(), ());
+        }
+    }
+    // ... and the edges of tred
+    for e in tred.edge_references() {
+        new.add_edge(
+            toposort[e.source() as usize],
+            toposort[e.target() as usize],
+            (),
+        );
+    }
+    std::mem::swap(&mut di.graph, &mut new);
     di
 }
 
@@ -290,10 +352,17 @@ mod tests {
         );
         new.check_metadata();
         if same_roots {
-            assert_eq!(new.roots_name(), orig.roots_name());
+            assert_eq!(new.roots_name(), orig.roots_name(), "not the same roots");
         }
-        assert_eq!(new.reachable_size(), orig.reachable_size());
-        assert_eq!(new.graph[new.root], orig.graph[orig.root]);
+        assert_eq!(
+            new.reachable_size(),
+            orig.reachable_size(),
+            "not the same reachable size"
+        );
+        assert_eq!(
+            new.graph[new.root], orig.graph[orig.root],
+            "not the same root"
+        );
         let _ = petgraph::algo::toposort(&new.graph, None).expect("the graph has a cycle");
         assert_eq!(
             new.graph
@@ -436,7 +505,9 @@ mod tests {
             let trimmed = keep_reachable(di);
             check_invariants(|x| keep(x, |_| false), trimmed.clone(), false);
             println!("testing keep all");
-            check_invariants(|x| keep(x, |_| true), trimmed, true);
+            check_invariants(|x| keep(x, |_| true), trimmed.clone(), true);
+            println!("testing tred");
+            check_invariants(transitive_reduction, trimmed, true);
         }
     }
     #[test]
@@ -518,6 +589,50 @@ mod tests {
                         .find_edge(*(&old_map[&w]), *(&old_map[&w2]))
                         .is_some();
                     assert_eq!(is_edge, was_edge);
+                }
+            }
+        }
+    }
+    #[test]
+    fn check_transitive_reduction() {
+        let mut rng = rand::thread_rng();
+        for _ in 0..40 {
+            let mut old = generate_random(100, 3, true);
+            // make it slightly cyclic
+            for _ in 1..20 {
+                let from = rng.gen_range(1..old.graph.node_count());
+                let to = rng.gen_range(1..old.graph.node_count());
+                old.graph
+                    .add_edge(NodeIndex::from(from as u32), NodeIndex::from(to as u32), ());
+                old.check_metadata();
+            }
+
+            let new = transitive_reduction(old.clone());
+
+            // same nodes
+            assert_eq!(old.graph.node_count(), new.graph.node_count());
+            for i in old.graph.node_indices() {
+                assert_eq!(old.graph[i], new.graph[i]);
+            }
+
+            // edges inclusion
+            for e in new.graph.edge_references() {
+                assert!(
+                    old.graph.find_edge(e.source(), e.target()).is_some(),
+                    "edge {:?} is in result of tred but not in argument",
+                    e
+                );
+            }
+
+            // identical closure
+            let mut old_space = petgraph::algo::DfsSpace::new(&old.graph);
+            let mut new_space = petgraph::algo::DfsSpace::new(&new.graph);
+            for i in old.graph.node_indices() {
+                for j in old.graph.node_indices() {
+                    assert_eq!(
+                        petgraph::algo::has_path_connecting(&old.graph, i, j, Some(&mut old_space)),
+                        petgraph::algo::has_path_connecting(&new.graph, i, j, Some(&mut new_space))
+                    )
                 }
             }
         }

@@ -1,6 +1,8 @@
 master:
 
 * show a human readable description of gc roots along with their age when possible
+* transitive reduction is now built-in, it is not necessary anymore to pipe the
+  output to tred
 
 v0.6.0:
 

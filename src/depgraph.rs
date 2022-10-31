@@ -508,11 +508,11 @@ impl DepInfos {
             while let Some(_) = dfs.next(&self.graph) {
                 i += 1;
             }
-            assert_eq!(i, self.graph.node_count());
+            assert_eq!(i, self.graph.node_count(), "metadata indicates graph is connected, but it is not");
         }
         let entry = &self.metadata.size[self.metadata.dedup];
         if let Some(s) = entry[self.metadata.reachable] {
-            assert_eq!(s, self.size());
+            assert_eq!(s, self.size(), "wrong size in metadata");
         }
     }
 }

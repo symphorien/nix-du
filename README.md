@@ -26,18 +26,15 @@ Then you can translate the graph in various more "traditional" image formats.
 For example:
 ```sh
 # to svg
-nix-du -s=500MB | tred | dot -Tsvg > store.svg
+nix-du -s=500MB | dot -Tsvg > store.svg
 # to png
-nix-du -s=500MB | tred | dot -Tpng > store.png
+nix-du -s=500MB | dot -Tpng > store.png
 ```
 Another option is to use an interactive viewer such as `zgrviewer`
 ```sh
-nix-du -s=500MB | tred > store.dot
+nix-du -s=500MB > store.dot
 zgrviewer store.dot
 ```
-
-Piping `nix-du`'s output through `tred` as above simplifies the graph and is highly recommended,
-although not mandatory.
 
 ### Interpreting the result
 #### What gc-roots are taking space ?
@@ -45,7 +42,7 @@ As an example, imagine the following scenario.
 You start with a brand new, empty installation of nix. You install
 `nix-index`. Then you run `nix-du`:
 ```
-nix-du | tred | dot -Tsvg > result.svg
+nix-du | dot -Tsvg > result.svg
 ```
 
 ![](screenshots/1.svg)
@@ -87,11 +84,11 @@ In the reality, the dependency graph of a store is often very big (and `dot` wil
 struggle to compute a layout for it) so you can ask `nix-du` to simplify it:
 * only keep nodes weighing at least 500 MB (i.e. I am only interested in saving at least 500 MB):
 ```
-nix-du -s=500MB | tred | dot -Tsvg > store.svg
+nix-du -s=500MB | dot -Tsvg > store.svg
 ```
 * only keep the 50 heaviest inner nodes
 ```
-nix-du -n=50 | tred | dot -Tsvg > store.svg
+nix-du -n=50 | dot -Tsvg > store.svg
 ```
 Note that with these options:
 * Some roots are kept even if they are not heavy enough.
@@ -105,11 +102,11 @@ path are responsible for disk usage. To do so, pass `--root
 
 * Which packages installed with `environment.systemPackages` in `/etc/nixos/configuration.nix` use most space ? (ignoring everything less than 500 MB)
 ```
-nix-du --root /run/current-system/sw/ -s 500MB | tred > result.dot
+nix-du --root /run/current-system/sw/ -s 500MB > result.dot
 ```
 * Which packages installed with `nix-env` use most space ?
 ```
-nix-du --root ~/.nix-profile | tred > result.dot
+nix-du --root ~/.nix-profile > result.dot
 ```
 ##### Example
 
@@ -146,7 +143,7 @@ Example: if you have such a NixOS configuration:
 ```
 Then you run
 ```
-nix-du --root /run/current-system/sw/ | tred > result.dot
+nix-du --root /run/current-system/sw/ > result.dot
 ```
 and see that `openssh` accounts for 123 MB of space. Then you remove `openssh` from
 your `systemPackages`, delete the old generation, and don't free 123 MB. This is
