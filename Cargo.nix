@@ -1255,7 +1255,7 @@ rec {
       };
       "nix-du" = rec {
         crateName = "nix-du";
-        version = "0.6.0";
+        version = "1.0.0";
         edition = "2018";
         crateBin = [
           {
@@ -1270,7 +1270,7 @@ rec {
           then lib.cleanSourceWith { filter = sourceFilter;  src = ./.; }
           else ./.;
         authors = [
-          "Symphorien Gibol <symphorien+git@xlumurb.eu>"
+          "Guillaume Girol <symphorien+git@xlumurb.eu>"
         ];
         dependencies = [
           {

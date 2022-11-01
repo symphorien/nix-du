@@ -1,7 +1,7 @@
 [package]
 name = "nix-du"
-version = "0.6.0"
-authors = ["Symphorien Gibol <symphorien+git@xlumurb.eu>"]
+version = "1.0.0"
+authors = ["Guillaume Girol <symphorien+git@xlumurb.eu>"]
 license = "LGPL-3.0"
 edition = "2018"
 
