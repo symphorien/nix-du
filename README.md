@@ -108,6 +108,11 @@ nix-du --root /run/current-system/sw/ -s 500MB > result.dot
 ```
 nix-du --root ~/.nix-profile > result.dot
 ```
+
+##### Limits
+
+Note that nix-du is mostly interested in *direct* dependencies of the root; if you want transitive dependencies to be clearly visible have a look at [nix-tree](https://github.com/utdemir/nix-tree).
+
 ##### Example
 
 ![](screenshots/profile.svg)
