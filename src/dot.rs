@@ -2,20 +2,11 @@
 
 use crate::depgraph;
 use bytesize::ByteSize;
-use palette::{encoding::Linear, rgb::Rgb, FromColor, Hsv, IntoColor, RelativeContrast, Srgb};
 use petgraph::visit::IntoNodeReferences;
+use scarlet::colormap::ColorMap;
+use scarlet::material_colors::MaterialPrimary;
+use scarlet::{colormap::ListedColorMap, prelude::*};
 use std::io::{self, Write};
-use std::{self, fmt::Display};
-
-struct GraphvizColor(Hsv<Linear<palette::encoding::Srgb>, f32>);
-
-impl Display for GraphvizColor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let color = Srgb::from_linear(Rgb::from_color(self.0));
-        let (r, g, b): (u8, u8, u8) = color.into_format().into_components();
-        write!(f, "#{:02X}{:02X}{:02X}", r, g, b)
-    }
-}
 
 pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Result<()> {
     // compute color gradient
@@ -28,31 +19,12 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
     }
     let span = (max - min) as f64;
 
-    let scale = move |size| (((size - min) as f64) / span) as f32;
+    let scale = move |size| (((size - min) as f64) / span);
 
-    let gradient = palette::gradient::Gradient::new(
-        vec![
-            palette::named::ROYALBLUE,
-            palette::named::GREENYELLOW,
-            palette::named::GOLD,
-            palette::named::RED,
-        ]
-        .into_iter()
-        .map(|x| {
-            // into_format() converts from u8 to f32
-            // into_linear() converts to linear color space
-            // into_color() converts to Hsv
-            x.into_format().into_linear().into_color()
-        })
-        .collect::<Vec<Hsv<_, f32>>>(),
-    );
-
-    let textcolors: Vec<(Hsv<_, f32>, String)> = [palette::named::WHITE, palette::named::BLACK]
+    let gradient = ListedColorMap::turbo();
+    let textcolors: Vec<RGBColor> = [MaterialPrimary::White, MaterialPrimary::Black]
         .iter()
-        .map(|&c| {
-            let c = c.into_format().into_linear().into_color();
-            (c, GraphvizColor(c).to_string())
-        })
+        .map(|&c| RGBColor::from_material_palette(c))
         .collect();
 
     w.write_all(b"digraph nixstore {\n")?;
@@ -69,16 +41,20 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
             continue;
         };
         let size = ByteSize::b(node.size);
-        let color: Hsv<_, f32> = gradient.get(scale(node.size));
-        let (_, textcolor) = textcolors
+        let offset = scale(node.size);
+        // make large node more visible in the color map
+        let offset = offset.sqrt();
+        let color: RGBColor = gradient.transform_single(offset);
+        let textcolor = textcolors
             .iter()
-            .max_by_key(|(c, _name)| (c.get_contrast_ratio(&color) * 1000.) as u64)
-            .expect("no possible textcolor");
+            .max_by_key(|c| (c.distance(&color) * 1000.) as u64)
+            .expect("no possible textcolor")
+            .to_string();
         write!(
             w,
             "N{}[color=\"{}\",fontcolor=\"{}\",label=\"",
             idx.index(),
-            GraphvizColor(color),
+            color.to_string(),
             textcolor
         )?;
         w.write_all(&node.name())?;
