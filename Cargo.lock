@@ -712,7 +712,6 @@ dependencies = [
  "fixedbitset",
  "indicatif",
  "lazy_static",
- "memchr",
  "petgraph",
  "pkg-config",
  "rand",

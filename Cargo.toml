@@ -21,7 +21,6 @@ versions = "5"
 [dependencies]
 petgraph = "0.6"
 fixedbitset = "0.4"
-memchr = "2"
 bytesize = "1"
 scarlet = "1"
 walkdir = "2"
