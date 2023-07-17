@@ -39,7 +39,7 @@ pub fn refine_optimized_store(di: &mut DepInfos) -> Result<()> {
     } else {
         indicatif::ProgressBar::new(di.graph.node_count() as u64).with_style(
             indicatif::ProgressStyle::default_bar()
-                .template("{wide_bar} {percent}% ETA {eta}")
+                .template("{wide_bar} {percent:>3}% ETA {eta:>7}")
                 .expect("invalid template"),
         )
     };
