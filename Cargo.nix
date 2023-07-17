@@ -251,9 +251,9 @@ rec {
       };
       "bindgen" = rec {
         crateName = "bindgen";
-        version = "0.61.0";
+        version = "0.66.1";
         edition = "2018";
-        sha256 = "16phlka8ykx28jlk7l637vlr9h01j8mh2s0d6km6z922l5c2w0la";
+        sha256 = "19yj6fsb08x0l1pg871vvfvlx1mglamz8hyjpazhfc90zh34xf7j";
         libPath = "lib.rs";
         authors = [
           "Jyun-Yan You <jyyou.tw@gmail.com>"
@@ -264,7 +264,7 @@ rec {
         dependencies = [
           {
             name = "bitflags";
-            packageId = "bitflags 1.3.2";
+            packageId = "bitflags 2.3.3";
           }
           {
             name = "cexpr";
@@ -293,6 +293,11 @@ rec {
             packageId = "peeking_take_while";
           }
           {
+            name = "prettyplease";
+            packageId = "prettyplease";
+            optional = true;
+          }
+          {
             name = "proc-macro2";
             packageId = "proc-macro2";
             usesDefaultFeatures = false;
@@ -318,7 +323,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 1.0.109";
+            packageId = "syn 2.0.26";
             features = [ "full" "extra-traits" "visit-mut" ];
           }
           {
@@ -329,15 +334,15 @@ rec {
           }
         ];
         features = {
-          "default" = [ "logging" "runtime" "which-rustfmt" ];
-          "log" = [ "dep:log" ];
-          "logging" = [ "log" ];
+          "default" = [ "logging" "prettyplease" "runtime" "which-rustfmt" ];
+          "experimental" = [ "dep:annotate-snippets" ];
+          "logging" = [ "dep:log" ];
+          "prettyplease" = [ "dep:prettyplease" ];
           "runtime" = [ "clang-sys/runtime" ];
           "static" = [ "clang-sys/static" ];
-          "which" = [ "dep:which" ];
-          "which-rustfmt" = [ "which" ];
+          "which-rustfmt" = [ "dep:which" ];
         };
-        resolvedDefaultFeatures = [ "default" "log" "logging" "runtime" "which" "which-rustfmt" ];
+        resolvedDefaultFeatures = [ "default" "logging" "prettyplease" "runtime" "which-rustfmt" ];
       };
       "bitflags 1.3.2" = rec {
         crateName = "bitflags";
@@ -857,9 +862,9 @@ rec {
       };
       "enum-map" = rec {
         crateName = "enum-map";
-        version = "1.1.1";
-        edition = "2018";
-        sha256 = "1n99fg6hwxjfb9fzil2zrvc7radj9yqnyjn8vrc110hnc6xag4z8";
+        version = "2.6.0";
+        edition = "2021";
+        sha256 = "07vb7yjb58l0iyrjxcjqyfqdsqxwq2aysn0pqgs1gjacrdx20yq1";
         authors = [
           "Konrad Borowski <konrad@borowski.pw>"
         ];
@@ -876,9 +881,9 @@ rec {
       };
       "enum-map-derive" = rec {
         crateName = "enum-map-derive";
-        version = "0.6.0";
-        edition = "2015";
-        sha256 = "1ah7b71llknvwj031zsrqpxam5566hbc2i6vq7v4zqzn1ap8w9w4";
+        version = "0.12.0";
+        edition = "2021";
+        sha256 = "0bvdy7vxxk1hrsls4bimdbm2plhb1d75z3hghvbx4whah04v8q45";
         procMacro = true;
         authors = [
           "Konrad Borowski <konrad@borowski.pw>"
@@ -894,7 +899,7 @@ rec {
           }
           {
             name = "syn";
-            packageId = "syn 1.0.109";
+            packageId = "syn 2.0.26";
             usesDefaultFeatures = false;
             features = [ "derive" "parsing" "printing" "proc-macro" ];
           }
@@ -2023,6 +2028,39 @@ rec {
         };
         resolvedDefaultFeatures = [ "simd" "std" ];
       };
+      "prettyplease" = rec {
+        crateName = "prettyplease";
+        version = "0.2.10";
+        edition = "2021";
+        sha256 = "11rkz208cp0pcpd7wljwcad4jmnr63k97b9zsi804hbvjnc924wj";
+        authors = [
+          "David Tolnay <dtolnay@gmail.com>"
+        ];
+        dependencies = [
+          {
+            name = "proc-macro2";
+            packageId = "proc-macro2";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "syn";
+            packageId = "syn 2.0.26";
+            usesDefaultFeatures = false;
+            features = [ "full" ];
+          }
+        ];
+        devDependencies = [
+          {
+            name = "syn";
+            packageId = "syn 2.0.26";
+            usesDefaultFeatures = false;
+            features = [ "parsing" ];
+          }
+        ];
+        features = {
+          "verbatim" = [ "syn/parsing" ];
+        };
+      };
       "proc-macro2" = rec {
         crateName = "proc-macro2";
         version = "1.0.66";
@@ -2741,7 +2779,7 @@ rec {
           "quote" = [ "dep:quote" ];
           "test" = [ "syn-test-suite/all-features" ];
         };
-        resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "extra-traits" "full" "parsing" "printing" "proc-macro" "quote" "visit-mut" ];
+        resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "extra-traits" "parsing" "printing" "proc-macro" "quote" ];
       };
       "syn 2.0.26" = rec {
         crateName = "syn";
@@ -2775,7 +2813,7 @@ rec {
           "quote" = [ "dep:quote" ];
           "test" = [ "syn-test-suite/all-features" ];
         };
-        resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "full" "parsing" "printing" "proc-macro" "quote" ];
+        resolvedDefaultFeatures = [ "clone-impls" "default" "derive" "extra-traits" "full" "parsing" "printing" "proc-macro" "quote" "visit-mut" ];
       };
       "terminal_size" = rec {
         crateName = "terminal_size";
@@ -2863,9 +2901,9 @@ rec {
       };
       "versions" = rec {
         crateName = "versions";
-        version = "4.1.0";
+        version = "5.0.0";
         edition = "2021";
-        sha256 = "1lv50vzdp8jfd4n6zmaasqyindj2ny8pd80j758zp4ymggcy35zf";
+        sha256 = "00idpf5f4zdlhj53jfja8d1k0q6vg2fwmqxjnvjyz5g4j7mv7zij";
         authors = [
           "Colin Woodbury <colin@fosskers.ca>"
         ];
