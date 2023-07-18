@@ -10,4 +10,4 @@ map
       channel_name = builtins.replaceStrings [ "channel:" ] [ "" ] (builtins.toString url);
     in
     map (x: (pkgs.callPackage ./nix-du.nix { nix = x; }).tested.overrideAttrs (old: { name = old.name + "-${channel_name}-nix-(${x.version}"; })) (allNixVersions pkgs)
-  ) [ channel:nixos-22.05 channel:nixos-unstable ]
+  ) [ "channel:nixos-23.05" "channel:nixos-unstable" ]
