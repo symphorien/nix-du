@@ -1,3 +1,7 @@
+master:
+
+* make quotient algorithm more memory efficient
+
 v1.0.0:
 
 * show a human readable description of gc roots along with their age when possible

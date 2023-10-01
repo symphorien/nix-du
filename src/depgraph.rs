@@ -55,7 +55,7 @@ impl NodeKind {
 
 pub type Path = Vec<u8>;
 
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub enum NodeDescription {
     /// A real, valid store path
     Path(Path),
@@ -261,7 +261,7 @@ impl fmt::Debug for NodeDescription {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct DepNode {
     pub description: NodeDescription,
     /// size in bytes

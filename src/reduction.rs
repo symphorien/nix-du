@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LGPL-3.0
 
-use std;
 use std::collections;
+use std::hash::Hasher;
+use std::{self, hash::Hash};
 
 use petgraph::visit::{DfsPostOrder, EdgeFiltered, EdgeRef, IntoEdgeReferences};
 
@@ -99,6 +100,43 @@ pub fn transitive_reduction(mut di: DepInfos) -> DepInfos {
     di
 }
 
+fn hash(state: u128, value: impl std::hash::Hash + Copy) -> u128 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::default();
+    state.hash(&mut hasher);
+    ("first", value).hash(&mut hasher);
+    let hash1 = hasher.finish().to_le_bytes();
+    ("second", value).hash(&mut hasher);
+    let hash2 = hasher.finish().to_le_bytes();
+    let result: [u8; 16] = [
+        hash1[0], hash1[1], hash1[2], hash1[3], hash1[4], hash1[5], hash1[6], hash1[7], hash2[0],
+        hash2[1], hash2[2], hash2[3], hash2[4], hash2[5], hash2[6], hash2[7],
+    ];
+    u128::from_le_bytes(result)
+}
+
+#[test]
+fn test_hash() {
+    // the hash is the same on all calls
+    assert_eq!(hash(1, 2), hash(1, 2));
+    // the hash does not look 100% broken
+    assert!(hash(1, 2) != hash(1, 3));
+    assert!(hash(2, 2) != hash(1, 2));
+    assert!(hash(1, 1) != hash(1, 2));
+}
+
+#[test]
+fn test_hash_larger() {
+    const N: usize = 500;
+    let mut values = std::collections::BTreeSet::new();
+    for i in 0..N {
+        for j in 0..N {
+            values.insert(hash(i as u128, j));
+        }
+    }
+    // test the absence of collision
+    assert_eq!(values.len(), N * N);
+}
+
 /// Computes a sort of condensation of the graph.
 ///
 /// Precisely, let `roots(v)` be the set of roots depending transitively on a vertex `v`.
@@ -109,25 +147,40 @@ pub fn transitive_reduction(mut di: DepInfos) -> DepInfos {
 /// equivalence class which have a corresponding edge in `G`.
 ///
 /// Complexity: with n vertices, m edges and r roots:
-/// * nln(r)+m in space
-/// * nln(n)+m in time
+/// * n+m in space
+/// * (n+m)*r in time
 ///
 /// Expected simplification: as I write theses lines, on my store (`NixOS`, 37G)
 /// * before: n=37594, m=262914
 /// * after `condense`: n=61, m=211
 pub fn condense(mut di: DepInfos) -> DepInfos {
-    let template = fixedbitset::FixedBitSet::with_capacity(di.roots().count());
-    let mut g = di.graph.map(|_, _| template.clone(), |_, _| ());
+    // I don't like non-deterministic algorithms. they are a nightmare to debug.
+    // But we rely on the hash of roots behaving like a random variable.
+    // So we seed the hash with the graph.
+    // Unfortunately, petgraph::Graph does not implement Hash, so let's do it
+    // by hand.
+    // hashing nodes is enough, if edges change then some store paths must also change.
+    let mut start_hash = 0;
+    for node in di.graph.raw_nodes() {
+        start_hash = hash(start_hash, &node.weight);
+    }
 
-    // label each node with roots it is a dependence of
-    for (i, root) in di.roots().enumerate() {
-        let mut bfs = petgraph::visit::Bfs::new(&g, root);
-        while let Some(nx) = bfs.next(&g) {
-            g[nx].insert(i);
+    let mut classes: Vec<u128> = vec![start_hash; di.graph.node_count()];
+
+    // label each node with the set of roots that depend on it
+    // actually we don't label each node with a set of roots indices, which would take too much
+    // memory, but with the hash of this set. The probability of collision is then bounded by
+    // the birthday paradox with (number of nodes) people and 2^128 days. It's very low :)
+    for root in di.roots() {
+        let mut bfs = petgraph::visit::Bfs::new(&di.graph, root);
+        while let Some(nx) = bfs.next(&di.graph) {
+            // importantly roots are visited in the same order on each node, so that the hash is
+            // equal for the same set of roots
+            classes[nx.index()] ^= hash(classes[nx.index()], root);
         }
     }
 
-    let mut bfs = petgraph::visit::Bfs::new(&g, di.root);
+    let mut bfs = petgraph::visit::Bfs::new(&di.graph, di.root);
 
     // now remove spurious elements from the original graph.
     // removing nodes is slow, so we create a new graph for that.
@@ -136,8 +189,9 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
 
     // we take as representative the topmost element of the class,
     // topmost as in depth -- the first reached in a BFS
-    while let Some(idx) = bfs.next(&g) {
-        let representative = &g[idx]; // set of roots depending on this node
+    while let Some(idx) = bfs.next(&di.graph) {
+        let representative = classes[idx.index()]; // hash of the set of roots that depend on this
+                                                   // node
         let new_node = new_ids.entry(representative).or_insert_with(|| {
             let mut w = DepNode::dummy();
             std::mem::swap(&mut w, &mut di.graph[idx]);
@@ -147,15 +201,15 @@ pub fn condense(mut di: DepInfos) -> DepInfos {
         new_w.size = new_w.size + di.graph[idx].size;
     }
 
-    let new_root = new_ids[&g[di.root]];
+    let new_root = new_ids[&classes[di.root.index()]];
     // keep edges
-    for edge in g.raw_edges() {
-        let from = new_ids[&g[edge.source()]];
+    for edge in di.graph.raw_edges() {
+        let from = new_ids[&classes[edge.source().index()]];
         if from == new_root && edge.source() != di.root {
             // this node is unreachable, so it falls into the equivalence class of the root
             continue;
         };
-        let to = new_ids[&g[edge.target()]];
+        let to = new_ids[&classes[edge.target().index()]];
         debug_assert_ne!(to, new_root);
         if from == to {
             // keep the graph acyclic
