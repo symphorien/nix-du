@@ -11,12 +11,11 @@ jobs:
       with:
         nix_path: nixpkgs=channel:nixos-unstable
     - run: nix-build test.nix
-  # spurious failures due to https://github.com/kolloch/crate2nix/issues/263
-  # mac:
-  #   runs-on: macos-latest
-  #   steps:
-  #   - uses: actions/checkout@v2.5.0
-  #   - uses: cachix/install-nix-action@v18
-  #     with:
-  #       nix_path: nixpkgs=channel:nixos-unstable
-  #   - run: nix-build test.nix
+  mac:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2.5.0
+    - uses: cachix/install-nix-action@v18
+      with:
+        nix_path: nixpkgs=channel:nixos-unstable
+    - run: nix-build test.nix
