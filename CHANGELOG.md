@@ -1,6 +1,7 @@
-master:
+v1.1.0:
 
 * make quotient algorithm more memory efficient
+* improvements to the progress bar
 
 v1.0.0:
 

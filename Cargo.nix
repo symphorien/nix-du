@@ -2073,7 +2073,7 @@ rec {
       };
       "nix-du" = rec {
         crateName = "nix-du";
-        version = "1.0.0";
+        version = "1.1.0";
         edition = "2018";
         crateBin = [
           {
@@ -2119,10 +2119,6 @@ rec {
           {
             name = "lazy_static";
             packageId = "lazy_static";
-          }
-          {
-            name = "memchr";
-            packageId = "memchr";
           }
           {
             name = "petgraph";
