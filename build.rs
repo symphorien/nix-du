@@ -24,7 +24,9 @@ fn main() {
         .cpp(true) // Switch to C++ library compilation.
         .opt_level(2) // needed for fortify hardening included by nix
         .file("wrapper.cpp");
-    let standard = if nix_version >= v("2.3") {
+    let standard = if nix_version >= v("2.15") {
+        "-std=c++20" // for __VA_OPT__ in <nix/comparator.hh>
+    } else if nix_version >= v("2.3") {
         "-std=c++17"
     } else {
         "-std=c++14"
