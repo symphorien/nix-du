@@ -1,3 +1,6 @@
+master:
+* fix build on darwin
+
 v1.1.0:
 
 * make quotient algorithm more memory efficient
