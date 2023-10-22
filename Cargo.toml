@@ -15,7 +15,7 @@ debug = true
 [build-dependencies]
 cc = "1.0"
 pkg-config = "0.3"
-bindgen = "0.66"
+bindgen = "0.68"
 versions = "5"
 
 [dependencies]
@@ -32,10 +32,10 @@ lazy_static = "1"
 regex = "1"
 
 [dependencies.clap]
-version = "4"
+version = ">=4,<4.4" # to be buildable with rustc 1.69
 features = ["derive", "suggestions", "color", "wrap_help"]
 
 [dev-dependencies]
 rand = "0.8"
 cli_test_dir = "0.1"
-which = "4"
+which = "5"
