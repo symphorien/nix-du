@@ -1,4 +1,4 @@
-master:
+v1.1.1:
 * fix build on darwin
 
 v1.1.0:
