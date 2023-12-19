@@ -8,14 +8,33 @@
 
 #include <iostream>
 #include <unordered_map>
+
+#if NIXVER >= 219
+
+#include <config.h> // #define SYSTEM
+#include <util.hh> // restoreSignals
+#include <current-process.hh> // restoreProcessContext
+#include <shared.hh> // initNix
+#include <local-store.hh>
+#include <remote-store.hh>
+
+#else
+
 #include <nix/config.h> // #define SYSTEM
 #include <nix/util.hh> // restoreSignals
 #include <nix/shared.hh> // initNix
 #include <nix/local-store.hh>
 #include <nix/remote-store.hh>
 
+#endif
+
 #include "wrapper.hpp"
 
+#if NIXVER >= 219
+#include <gc-store.hh>
+#include <store-cast.hh>
+#define findroots(store) require<GcStore>(*store).findRoots(false)
+#else
 #if NIXVER >= 208
 #include <nix/gc-store.hh>
 #include <nix/store-cast.hh>
@@ -29,6 +48,7 @@
 #define findroots(store) store->findRoots(false)
 #else
 #define findroots(store) store->findRoots()
+#endif
 #endif
 #endif
 #endif

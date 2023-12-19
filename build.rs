@@ -23,6 +23,7 @@ fn main() {
     builder
         .cpp(true) // Switch to C++ library compilation.
         .opt_level(2) // needed for fortify hardening included by nix
+        .includes(&nix.include_paths)
         .file("wrapper.cpp");
     let standard = if nix_version >= v("2.15") {
         "-std=c++20" // for __VA_OPT__ in <nix/comparator.hh>
@@ -32,7 +33,9 @@ fn main() {
         "-std=c++14"
     };
     builder.flag(standard);
-    let version = if nix_version >= v("2.8") {
+    let version = if nix_version >= v("2.19") {
+        219usize
+    } else if nix_version >= v("2.8") {
         208usize
     } else if nix_version >= v("2.7") {
         207usize
