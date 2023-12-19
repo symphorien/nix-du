@@ -7,15 +7,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2.5.0
-    - uses: cachix/install-nix-action@v23
-      with:
-        nix_path: nixpkgs=channel:nixos-unstable
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@v9
+    - name: Run the Magic Nix Cache
+      uses: DeterminateSystems/magic-nix-cache-action@v2
     - run: nix-build test.nix
   mac:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2.5.0
-    - uses: cachix/install-nix-action@v23
-      with:
-        nix_path: nixpkgs=channel:nixos-unstable
+    - name: Install Nix
+      uses: DeterminateSystems/nix-installer-action@v9
+    - name: Run the Magic Nix Cache
+      uses: DeterminateSystems/magic-nix-cache-action@v2
     - run: nix-build test.nix
