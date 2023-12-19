@@ -6,7 +6,7 @@ let
   channelsToTest = if isDarwin then
     [ "channel:nixos-unstable" ] # buildRustCrate is broken on 23.05 due to stripping rlibs
   else
-    [ "channel:nixos-23.05" "channel:nixos-unstable" ];
+    [ "channel:nixos-23.11" "channel:nixos-unstable" ];
 in
 map
   (url:
