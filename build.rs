@@ -51,6 +51,12 @@ fn main() {
     };
     eprintln!("building with NIXVER={version}");
     builder.define("NIXVER", version.to_string().as_str());
+    let compiler = builder.get_compiler();
+    if compiler.is_like_clang() {
+        // required for exception handling with libc++ on darwin
+        // https://github.com/NixOS/nixpkgs/issues/166205
+        println!("cargo:rustc-link-lib=c++abi");
+    }
     builder.compile("libnix_adapter.a");
 
     let bindings = bindgen::Builder::default()
