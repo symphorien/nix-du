@@ -267,9 +267,9 @@ rec {
       };
       "bindgen" = rec {
         crateName = "bindgen";
-        version = "0.68.1";
+        version = "0.69.1";
         edition = "2018";
-        sha256 = "0y40gndyay1fj8d3d8gsd9fyfzjlbghx92i560kmvhvfxc9l6vkj";
+        sha256 = "1hkrccfri0223b2r5cvacy83ld6s76n2m68518bsfilrhk1ypz4z";
         libPath = "lib.rs";
         authors = [
           "Jyun-Yan You <jyyou.tw@gmail.com>"

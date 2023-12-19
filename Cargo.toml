@@ -15,7 +15,7 @@ debug = true
 [build-dependencies]
 cc = "1.0"
 pkg-config = "0.3"
-bindgen = "0.68"
+bindgen = "0.69"
 versions = "5"
 
 [dependencies]
