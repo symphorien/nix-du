@@ -1,3 +1,7 @@
+v1.2.0:
+* fix build on darwin
+* support nix 2.19
+
 v1.1.1:
 * fix build on darwin
 
