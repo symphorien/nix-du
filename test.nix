@@ -1,8 +1,8 @@
 let
   isDerivation = x: (x.type or null) == "derivation";
   tryEvalOpt = x: let res = builtins.tryEval x; in if res.success then res.value else null;
-  allNixVersions = pkgs: [ pkgs.nixStable pkgs.nixUnstable ] ++ (builtins.filter isDerivation (map tryEvalOpt (builtins.attrValues (pkgs.nixVersions or { }))));
-  channelsToTest = [ "channel:nixos-23.11" "channel:nixos-unstable" ];
+  allNixVersions = pkgs: [ pkgs.nix ] ++ (builtins.filter isDerivation (map tryEvalOpt (builtins.attrValues (pkgs.nixVersions or { }))));
+  channelsToTest = [ "channel:nixos-24.05" "channel:nixos-unstable" ];
 in
 map
   (url:
