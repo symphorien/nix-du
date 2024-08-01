@@ -1,6 +1,6 @@
 [package]
 name = "nix-du"
-version = "1.2.0"
+version = "1.2.1"
 authors = ["Guillaume Girol <symphorien+git@xlumurb.eu>"]
 license = "LGPL-3.0"
 edition = "2018"

@@ -1,3 +1,7 @@
+v 1.2.1:
+
+* fix build with LLVM 18 for bindgen
+
 v1.2.0:
 * fix build on darwin
 * support nix 2.19

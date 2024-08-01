@@ -655,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "nix-du"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "bindgen",
  "bytesize",
