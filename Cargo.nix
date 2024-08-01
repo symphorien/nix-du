@@ -827,9 +827,9 @@ rec {
       };
       "dashmap" = rec {
         crateName = "dashmap";
-        version = "5.5.3";
+        version = "6.0.1";
         edition = "2018";
-        sha256 = "0miqnlxi501vfbv6mw5jbmzgnj0wjrch3p4abvpd59s9v30lg1wp";
+        sha256 = "0a5fmh96flvccnv3595ri50rl3swz9gsfaqc4dq8ngqcawhqhk40";
         authors = [
           "Acrimon <joel.wejdenstal@gmail.com>"
         ];
@@ -839,9 +839,14 @@ rec {
             packageId = "cfg-if";
           }
           {
+            name = "crossbeam-utils";
+            packageId = "crossbeam-utils";
+          }
+          {
             name = "hashbrown";
             packageId = "hashbrown";
             usesDefaultFeatures = false;
+            features = [ "raw" ];
           }
           {
             name = "lock_api";
@@ -2001,7 +2006,7 @@ rec {
           }
           {
             name = "which";
-            packageId = "which 5.0.0";
+            packageId = "which 6.0.2";
           }
         ];
 
@@ -3552,11 +3557,11 @@ rec {
           "regex" = [ "dep:regex" ];
         };
       };
-      "which 5.0.0" = rec {
+      "which 6.0.2" = rec {
         crateName = "which";
-        version = "5.0.0";
+        version = "6.0.2";
         edition = "2021";
-        sha256 = "053fpbczryyn8lcbpkvwl8v2rzld0pr30r5lh1cxv87kjs2ymwwv";
+        sha256 = "0xah27xv2c0zrr2kf7mvj1m0046j8d9j49xnngnif7zfd3b5x71x";
         authors = [
           "Harry Fei <tiziyuanfang@gmail.com>"
         ];
@@ -3571,25 +3576,22 @@ rec {
             target = { target, features }: ((target."windows" or false) || (target."unix" or false) || ("redox" == target."os" or null));
           }
           {
-            name = "once_cell";
-            packageId = "once_cell";
-            target = { target, features }: (target."windows" or false);
-          }
-          {
             name = "rustix";
             packageId = "rustix";
             usesDefaultFeatures = false;
+            target = { target, features }: ((target."unix" or false) || ("wasi" == target."os" or null) || ("redox" == target."os" or null));
             features = [ "fs" "std" ];
           }
           {
-            name = "windows-sys";
-            packageId = "windows-sys 0.48.0";
+            name = "winsafe";
+            packageId = "winsafe";
             target = { target, features }: (target."windows" or false);
-            features = [ "Win32_Storage_FileSystem" "Win32_Foundation" ];
+            features = [ "kernel" ];
           }
         ];
         features = {
           "regex" = [ "dep:regex" ];
+          "tracing" = [ "dep:tracing" ];
         };
       };
       "wide" = rec {
@@ -3925,7 +3927,7 @@ rec {
           "Win32_Web" = [ "Win32" ];
           "Win32_Web_InternetExplorer" = [ "Win32_Web" ];
         };
-        resolvedDefaultFeatures = [ "Win32" "Win32_Foundation" "Win32_Storage" "Win32_Storage_FileSystem" "Win32_System" "Win32_System_Console" "default" ];
+        resolvedDefaultFeatures = [ "Win32" "Win32_Foundation" "Win32_System" "Win32_System_Console" "default" ];
       };
       "windows-sys 0.52.0" = rec {
         crateName = "windows-sys";
@@ -4423,6 +4425,32 @@ rec {
           "Microsoft"
         ];
 
+      };
+      "winsafe" = rec {
+        crateName = "winsafe";
+        version = "0.0.19";
+        edition = "2021";
+        sha256 = "0169xy9mjma8dys4m8v4x0xhw2gkbhv2v1wsbvcjl9bhnxxd2dfi";
+        authors = [
+          "Rodrigo Cesar de Freitas Dias <rcesar@gmail.com>"
+        ];
+        features = {
+          "comctl" = [ "ole" ];
+          "dshow" = [ "oleaut" ];
+          "dwm" = [ "uxtheme" ];
+          "dxgi" = [ "ole" ];
+          "gdi" = [ "user" ];
+          "gui" = [ "comctl" "shell" "uxtheme" ];
+          "mf" = [ "oleaut" ];
+          "ole" = [ "user" ];
+          "oleaut" = [ "ole" ];
+          "shell" = [ "oleaut" ];
+          "taskschd" = [ "oleaut" ];
+          "user" = [ "kernel" ];
+          "uxtheme" = [ "gdi" "ole" ];
+          "version" = [ "kernel" ];
+        };
+        resolvedDefaultFeatures = [ "kernel" ];
       };
       "zerocopy" = rec {
         crateName = "zerocopy";
