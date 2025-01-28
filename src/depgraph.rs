@@ -285,11 +285,22 @@ impl DepNode {
             } else {
                 description = Path(path);
             }
-        } else if path.starts_with(b"{memory:") || path == b"{lsof}" || path == b"{censored}" {
-            // {memory} is nix < 2.2 and was replaced by paths in /proc for linux and {lsof} for darwin in nix 2.3.
-            // See https://github.com/NixOS/nix/commit/a3f37d87eabcfb5dc581abcfa46e5e7d387dfa8c
+        // {memory} is nix < 2.2 and was replaced by paths in /proc for linux and {lsof} for darwin in nix 2.3.
+        // See https://github.com/NixOS/nix/commit/a3f37d87eabcfb5dc581abcfa46e5e7d387dfa8c
+        } else if path.starts_with(b"{memory:")
+            || path == b"{lsof}"
             // {censored} was introduced in nix 2.3:
             // https://github.com/NixOS/nix/commit/53522cb6ac19bd1da35a657988231cce9387be9c
+            || path == b"{censored}"
+            // {libproc/$pid/...} is introduced in Lix 2.90
+            // https://git.lix.systems/lix-project/lix/src/commit/c03de0df627864fb7e83e9af88201b8a5fcd4930/src/libstore/platform/darwin.cc#L46
+            || path.starts_with(b"{libproc")
+            // {procstat:...} and {{sysctl:...} are introduced in Lix 2.91
+            // https://git.lix.systems/lix-project/lix/src/commit/53f3e39815c3357c6465963359e94a6318b54af7/src/libstore/platform/freebsd.cc#L34
+            // https://git.lix.systems/lix-project/lix/src/commit/53f3e39815c3357c6465963359e94a6318b54af7/src/libstore/platform/freebsd.cc#L117
+            || path.starts_with(b"{procstat:")
+            || path.starts_with(b"{{sysctl:")
+        {
             description = Memory(path);
         } else if path.starts_with(b"{temp:") {
             description = Temporary(path);
