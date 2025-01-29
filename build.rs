@@ -11,11 +11,21 @@ fn main() {
     println!("cargo:rerun-if-changed=wrapper.cpp");
 
     // find which version of nix we have
-    let nix = pkg_config::Config::new()
+    let (nix, flavor) = match pkg_config::Config::new()
         .atleast_version("2.2")
         .probe("nix-main")
-        .unwrap();
-    eprintln!("Found nix version {}", &nix.version);
+    {
+        Ok(nix) => (nix, "nix"),
+        Err(e) => match pkg_config::Config::new().probe("lix-main") {
+            Ok(lix) => (lix, "lix"),
+            Err(e2) => {
+                eprintln!("pkg-config failed to find both nix-main and lix-main:\n{e}\n{e2}");
+                std::process::exit(1)
+            }
+        },
+    };
+
+    eprintln!("Found {flavor} version {}", &nix.version);
     let nix_version = v(&nix.version);
 
     // compile libnix_adapter.a
@@ -25,6 +35,9 @@ fn main() {
         .opt_level(2) // needed for fortify hardening included by nix
         .includes(&nix.include_paths)
         .file("wrapper.cpp");
+    if flavor == "lix" {
+        builder.define("NIX_IS_ACTUALLY_LIX", "1");
+    }
     let standard = if nix_version >= v("2.15") {
         "-std=c++20" // for __VA_OPT__ in <nix/comparator.hh>
     } else if nix_version >= v("2.3") {
@@ -67,6 +80,10 @@ fn main() {
         .allowlist_type("path_t")
         .opaque_type("std::.*")
         .clang_arg(format!("-DNIXVER={}", version))
+        .clang_arg(format!(
+            "-{}NIX_IS_ACTUALLY_LIX=1",
+            if flavor == "lix" { "D" } else { "U" }
+        ))
         .clang_arg(standard)
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
@@ -85,10 +102,10 @@ fn main() {
     /* must be passed as an argument to the linker *after* -lnix_adapter */
     pkg_config::Config::new()
         .atleast_version("2.2")
-        .probe("nix-store")
+        .probe(&format!("{flavor}-store"))
         .unwrap();
     pkg_config::Config::new()
         .atleast_version("2.2")
-        .probe("nix-main")
+        .probe(&format!("{flavor}-main"))
         .unwrap();
 }

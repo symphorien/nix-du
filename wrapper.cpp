@@ -9,6 +9,32 @@
 #include <iostream>
 #include <unordered_map>
 
+#ifdef NIX_IS_ACTUALLY_LIX
+
+#include <lix/config.h> // #define SYSTEM
+#include <lix/libutil/current-process.hh>
+
+/* with lix 2.91,
+ * cannot include lix/libmain/shared.hh because it includes path.hh instead of
+ * lix/lixstore/path.hh
+ * So I redeclare the corresponding functions manually
+ * ----
+ * this seems to be fixed in lix 2.92
+ */
+#include <functional>
+namespace nix {
+  void initNix();
+  int handleExceptions(const std::string & programName, std::function<void()> fun);
+}
+
+#include <lix/libstore/local-store.hh>
+#include <lix/libstore/remote-store.hh>
+#include <lix/libstore/gc-store.hh>
+#include <lix/libstore/store-cast.hh>
+#define findroots(store) require<GcStore>(*store).findRoots(false)
+
+#else
+
 #if NIXVER >= 219
 
 #include <config.h> // #define SYSTEM
@@ -27,8 +53,6 @@
 #include <nix/remote-store.hh>
 
 #endif
-
-#include "wrapper.hpp"
 
 #if NIXVER >= 219
 #include <gc-store.hh>
@@ -52,6 +76,7 @@
 #endif
 #endif
 #endif
+#endif
 
 #if NIXVER >= 204
 #define PATH StorePath
@@ -68,6 +93,8 @@
 #define DERIVER_IS_EMPTY(d) d.empty()
 #define DERIVER_GET(d) d
 #endif
+
+#include "wrapper.hpp"
 
 extern "C" {
   typedef struct {

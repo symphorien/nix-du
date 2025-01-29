@@ -1,3 +1,7 @@
+unreleased:
+
+* Lix support
+
 v 1.2.1:
 
 * fix build with LLVM 18 for bindgen
