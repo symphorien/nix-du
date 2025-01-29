@@ -386,8 +386,8 @@ mod tests {
     use petgraph::prelude::NodeIndex;
     use petgraph::visit::IntoNodeReferences;
     use petgraph::visit::NodeRef;
-    use rand::distributions::WeightedIndex;
-    use rand::prelude::*;
+    use rand::distr::weighted::WeightedIndex;
+    use rand::distr::Distribution;
     use rand::Rng;
     use std::collections::{self, BTreeMap, BTreeSet};
 
@@ -440,15 +440,15 @@ mod tests {
         let choices = &[true, false];
         let weights = &[avg_degree, size - 1 - avg_degree];
         let wc = WeightedIndex::new(weights).unwrap();
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut g: DepGraph = petgraph::graph::Graph::new();
-        let rooted = rng.gen();
+        let rooted = rng.random();
         for i in 0..size {
             let path = i.to_string().into();
-            let description = if rooted || i > 4 || rng.gen() {
+            let description = if rooted || i > 4 || rng.random() {
                 Path(path)
             } else {
-                if rng.gen() {
+                if rng.random() {
                     Memory(path)
                 } else {
                     Temporary(path)
@@ -486,7 +486,7 @@ mod tests {
             .externals(petgraph::Direction::Incoming)
             .collect::<Vec<_>>()
         {
-            if !rooted && rng.gen() {
+            if !rooted && rng.random() {
                 if g[idx].kind() == NodeKind::Path {
                     let w = &mut g[idx].description;
                     let mut temp = NodeDescription::Dummy;
@@ -499,7 +499,7 @@ mod tests {
                     assert_eq!(w.kind(), NodeKind::Link);
                 }
             }
-            let make_reachable = connected || g[idx].kind().is_gc_root() || rng.gen();
+            let make_reachable = connected || g[idx].kind().is_gc_root() || rng.random();
             if root != idx && make_reachable {
                 g.add_edge(root, idx, ());
             }
@@ -649,13 +649,13 @@ mod tests {
     }
     #[test]
     fn check_transitive_reduction() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..40 {
             let mut old = generate_random(100, 3, true);
             // make it slightly cyclic
             for _ in 1..20 {
-                let from = rng.gen_range(1..old.graph.node_count());
-                let to = rng.gen_range(1..old.graph.node_count());
+                let from = rng.random_range(1..old.graph.node_count());
+                let to = rng.random_range(1..old.graph.node_count());
                 old.graph
                     .add_edge(NodeIndex::from(from as u32), NodeIndex::from(to as u32), ());
                 old.check_metadata();

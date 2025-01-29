@@ -36,6 +36,6 @@ version = "4"
 features = ["derive", "suggestions", "color", "wrap_help"]
 
 [dev-dependencies]
-rand = "0.8"
+rand = "0.9"
 cli_test_dir = "0.1"
 which = "7"
