@@ -1,16 +1,18 @@
-unreleased:
+v1.2.2:
 
 * Lix support
 
-v 1.2.1:
+v1.2.1:
 
 * fix build with LLVM 18 for bindgen
 
 v1.2.0:
+
 * fix build on darwin
 * support nix 2.19
 
 v1.1.1:
+
 * fix build on darwin
 
 v1.1.0:

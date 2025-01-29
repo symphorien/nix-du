@@ -19,9 +19,11 @@ nix-env -f channel:nixos-unstable -iA nix-du
 
 `nix-du` is only tested to build on the latest NixOS stable version and NixOS unstable.
 Notably, this implies you need a less than six month old rust version. Currently
-`nix-du` is known to need at least `rustc >= 1.26`.
+`nix-du` is known to need at least `rustc >= 1.82`. Semantic versionning is
+slightly fuzzy with executables (as opposed to libraries) but bumping the
+minimum required version of `rustc` is not considered a breaking change.
 
-You need `nix` version 2 and `boost` (a dependency of `nix`).
+You need `nix` version 2 and `boost` (a dependency of `nix`). `lix` can be used instead of `nix`.
 Tests need `dot` in `$PATH`. Tests are known to non-deterministically fail with
 `nix < 2.1`.
 
