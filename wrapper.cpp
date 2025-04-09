@@ -60,23 +60,17 @@ int handleExceptions(const std::string & programName, std::function<void()> fun)
 #    include <gc-store.hh>
 #    include <store-cast.hh>
 #    define findroots(store) require<GcStore>(*store).findRoots(false)
+#  elif NIXVER >= 208
+#    include <nix/gc-store.hh>
+#    include <nix/store-cast.hh>
+#    define findroots(store) require<GcStore>(*store).findRoots(false)
+#  elif NIXVER >= 207
+#    include <nix/gc-store.hh>
+#    define findroots(store) requireGcStore(*store).findRoots(false)
+#  elif NIXVER >= 203
+#    define findroots(store) store->findRoots(false)
 #  else
-#    if NIXVER >= 208
-#      include <nix/gc-store.hh>
-#      include <nix/store-cast.hh>
-#      define findroots(store) require<GcStore>(*store).findRoots(false)
-#    else
-#      if NIXVER >= 207
-#        include <nix/gc-store.hh>
-#        define findroots(store) requireGcStore(*store).findRoots(false)
-#      else
-#        if NIXVER >= 203
-#          define findroots(store) store->findRoots(false)
-#        else
-#          define findroots(store) store->findRoots()
-#        endif
-#      endif
-#    endif
+#    define findroots(store) store->findRoots()
 #  endif
 #endif
 
