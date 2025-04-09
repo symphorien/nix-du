@@ -36,8 +36,17 @@ int handleExceptions(const std::string & programName, std::function<void()> fun)
 #  define findroots(store) require<GcStore>(*store).findRoots(false)
 
 #else
+#  if NIXVER >= 228
 
-#  if NIXVER >= 219
+#    include <nix/util/signals.hh>         // restoreSignals
+#    include <nix/util/current-process.hh> // restoreProcessContext
+
+#    include <nix/store/local-store.hh>
+#    include <nix/store/remote-store.hh>
+
+#    include <nix/main/shared.hh> // initNix
+
+#  elif NIXVER >= 219
 
 #    include <config.h>           // #define SYSTEM
 #    include <util.hh>            // restoreSignals
@@ -56,7 +65,11 @@ int handleExceptions(const std::string & programName, std::function<void()> fun)
 
 #  endif
 
-#  if NIXVER >= 219
+#  if NIXVER >= 228
+#    include <nix/store/gc-store.hh>
+#    include <nix/store/store-cast.hh>
+#    define findroots(store) require<GcStore>(*store).findRoots(false)
+#  elif NIXVER >= 219
 #    include <gc-store.hh>
 #    include <store-cast.hh>
 #    define findroots(store) require<GcStore>(*store).findRoots(false)
