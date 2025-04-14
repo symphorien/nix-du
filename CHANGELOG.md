@@ -1,3 +1,7 @@
+v1.2.3:
+
+* nix 2.26, 2.28 support
+
 v1.2.2:
 
 * Lix support
