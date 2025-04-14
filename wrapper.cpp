@@ -48,7 +48,11 @@ int handleExceptions(const std::string & programName, std::function<void()> fun)
 
 #  elif NIXVER >= 219
 
-#    include <config.h>           // #define SYSTEM
+#    if NIXVER >= 226
+#      include <config-store.hh> // #define SYSTEM
+#    else
+#      include <config.h> // #define SYSTEM
+#    endif
 #    include <util.hh>            // restoreSignals
 #    include <current-process.hh> // restoreProcessContext
 #    include <shared.hh>          // initNix
