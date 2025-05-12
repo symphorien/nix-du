@@ -434,16 +434,20 @@ rec {
       };
       "bytesize" = rec {
         crateName = "bytesize";
-        version = "1.3.3";
-        edition = "2015";
-        sha256 = "0nb645ma48nwsv1piylzcza0avjp435sl8krhyws3q18kv5ap4rf";
+        version = "2.0.1";
+        edition = "2021";
+        sha256 = "1fmchbqbk4pvzh0g4qmsgxlq2scdn4qgfg5fxvqaqjj114rgij53";
         authors = [
           "Hyunsik Choi <hyunsik.choi@gmail.com>"
+          "MrCroxx <mrcroxx@outlook.com>"
+          "Rob Ede <robjtede@icloud.com>"
         ];
         features = {
+          "arbitrary" = [ "dep:arbitrary" ];
+          "default" = [ "std" ];
           "serde" = [ "dep:serde" ];
         };
-        resolvedDefaultFeatures = [ "default" ];
+        resolvedDefaultFeatures = [ "default" "std" ];
       };
       "cc" = rec {
         crateName = "cc";

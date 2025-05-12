@@ -21,7 +21,7 @@ versions = "6"
 [dependencies]
 petgraph = "0.8"
 fixedbitset = "0.5"
-bytesize = "1"
+bytesize = "2"
 scarlet = "1"
 walkdir = "2"
 enum-map = "2"
