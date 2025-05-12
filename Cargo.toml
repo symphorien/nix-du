@@ -19,7 +19,7 @@ bindgen = "0.71"
 versions = "6"
 
 [dependencies]
-petgraph = "0.7"
+petgraph = "0.8"
 fixedbitset = "0.5"
 bytesize = "1"
 scarlet = "1"

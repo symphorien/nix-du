@@ -110,6 +110,22 @@ rec {
         };
         resolvedDefaultFeatures = [ "perf-literal" "std" ];
       };
+      "allocator-api2" = rec {
+        crateName = "allocator-api2";
+        version = "0.2.21";
+        edition = "2018";
+        sha256 = "08zrzs022xwndihvzdn78yqarv2b9696y67i6h78nla3ww87jgb8";
+        libName = "allocator_api2";
+        authors = [
+          "Zakarum <zaq.dev@icloud.com>"
+        ];
+        features = {
+          "default" = [ "std" ];
+          "serde" = [ "dep:serde" ];
+          "std" = [ "alloc" ];
+        };
+        resolvedDefaultFeatures = [ "alloc" ];
+      };
       "anstream" = rec {
         crateName = "anstream";
         version = "0.6.18";
@@ -1094,6 +1110,18 @@ rec {
         ];
 
       };
+      "foldhash" = rec {
+        crateName = "foldhash";
+        version = "0.1.5";
+        edition = "2021";
+        sha256 = "1wisr1xlc2bj7hk4rgkcjkz3j2x4dhd1h9lwk7mj8p71qpdgbi6r";
+        authors = [
+          "Orson Peters <orsonpeters@gmail.com>"
+        ];
+        features = {
+          "default" = [ "std" ];
+        };
+      };
       "geo" = rec {
         crateName = "geo";
         version = "0.25.1";
@@ -1367,6 +1395,27 @@ rec {
         authors = [
           "Amanieu d'Antras <amanieu@gmail.com>"
         ];
+        dependencies = [
+          {
+            name = "allocator-api2";
+            packageId = "allocator-api2";
+            optional = true;
+            usesDefaultFeatures = false;
+            features = [ "alloc" ];
+          }
+          {
+            name = "equivalent";
+            packageId = "equivalent";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "foldhash";
+            packageId = "foldhash";
+            optional = true;
+            usesDefaultFeatures = false;
+          }
+        ];
         features = {
           "alloc" = [ "dep:alloc" ];
           "allocator-api2" = [ "dep:allocator-api2" ];
@@ -1380,6 +1429,7 @@ rec {
           "rustc-dep-of-std" = [ "nightly" "core" "compiler_builtins" "alloc" "rustc-internal-api" ];
           "serde" = [ "dep:serde" ];
         };
+        resolvedDefaultFeatures = [ "allocator-api2" "default" "default-hasher" "equivalent" "inline-more" "raw-entry" ];
       };
       "heapless" = rec {
         crateName = "heapless";
@@ -1484,7 +1534,7 @@ rec {
           "rayon" = [ "dep:rayon" ];
           "serde" = [ "dep:serde" ];
         };
-        resolvedDefaultFeatures = [ "default" "std" ];
+        resolvedDefaultFeatures = [ "std" ];
       };
       "indicatif" = rec {
         crateName = "indicatif";
@@ -2421,9 +2471,9 @@ rec {
       };
       "petgraph" = rec {
         crateName = "petgraph";
-        version = "0.7.1";
-        edition = "2018";
-        sha256 = "0wkpppwrfv1h197asz1p4yfb4li5b1kw0nqllil67n6vj1qb6win";
+        version = "0.8.1";
+        edition = "2021";
+        sha256 = "01ny4ixhpiciysgahd3fv3aszn3csq52swnc3m90lqjm0rrcd63s";
         authors = [
           "bluss"
           "mitchmindtree"
@@ -2435,21 +2485,34 @@ rec {
             usesDefaultFeatures = false;
           }
           {
+            name = "hashbrown";
+            packageId = "hashbrown 0.15.3";
+          }
+          {
             name = "indexmap";
             packageId = "indexmap";
+            usesDefaultFeatures = false;
+          }
+          {
+            name = "serde";
+            packageId = "serde";
+            optional = true;
+            usesDefaultFeatures = false;
           }
         ];
         features = {
           "all" = [ "unstable" "quickcheck" "matrix_graph" "stable_graph" "graphmap" "rayon" ];
-          "default" = [ "graphmap" "stable_graph" "matrix_graph" ];
+          "default" = [ "std" "graphmap" "stable_graph" "matrix_graph" ];
           "quickcheck" = [ "dep:quickcheck" ];
-          "rayon" = [ "dep:rayon" "indexmap/rayon" ];
+          "rayon" = [ "std" "dep:rayon" "indexmap/rayon" ];
           "serde" = [ "dep:serde" ];
           "serde-1" = [ "serde" "serde_derive" ];
           "serde_derive" = [ "dep:serde_derive" ];
+          "stable_graph" = [ "serde?/alloc" ];
+          "std" = [ "indexmap/std" ];
           "unstable" = [ "generate" ];
         };
-        resolvedDefaultFeatures = [ "default" "graphmap" "matrix_graph" "stable_graph" ];
+        resolvedDefaultFeatures = [ "default" "graphmap" "matrix_graph" "stable_graph" "std" ];
       };
       "pkg-config" = rec {
         crateName = "pkg-config";
