@@ -8,16 +8,22 @@ jobs:
     steps:
     - uses: actions/checkout@v2.5.0
     - name: Install Nix
-      uses: DeterminateSystems/nix-installer-action@v9
-    - name: Run the Magic Nix Cache
-      uses: DeterminateSystems/magic-nix-cache-action@v2
+      uses: nixbuild/nix-quick-install-action@v30
+    - name: Set up Nix cache
+      uses: nix-community/cache-nix-action@v6
+      with:
+        primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+        restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}
     - run: nix-build test.nix
   mac:
     runs-on: macos-latest
     steps:
     - uses: actions/checkout@v2.5.0
     - name: Install Nix
-      uses: DeterminateSystems/nix-installer-action@v9
-    - name: Run the Magic Nix Cache
-      uses: DeterminateSystems/magic-nix-cache-action@v2
+      uses: nixbuild/nix-quick-install-action@v30
+    - name: Set up Nix cache
+      uses: nix-community/cache-nix-action@v6
+      with:
+        primary-key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/*.nix', '**/flake.lock') }}
+        restore-prefixes-first-match: nix-${{ runner.os }}-${{ runner.arch }}
     - run: nix-build test.nix
