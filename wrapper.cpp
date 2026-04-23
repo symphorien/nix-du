@@ -192,16 +192,23 @@ int populateGraph(void * graph, const char * rootPath)
           queue.push_back(dep);
         }
       }
+#if NIXVER >= 234
+      bool gcKeepOutputs = settings.getLocalSettings().getGCSettings().keepOutputs;
+      bool gcKeepDerivations = settings.getLocalSettings().getGCSettings().keepDerivations;
+#else
+      bool gcKeepOutputs = settings.gcKeepOutputs;
+      bool gcKeepDerivations = settings.gcKeepDerivations;
+#endif
       // register edges from/to drv if this path has a derivation
-      if ((settings.gcKeepOutputs || settings.gcKeepDerivations) && (!DERIVER_IS_EMPTY(from.data->deriver))
+      if ((gcKeepOutputs || gcKeepDerivations) && (!DERIVER_IS_EMPTY(from.data->deriver))
           && store->isValidPath(DERIVER_GET(from.data->deriver))) {
         Info drv;
         bool drv_was_cached;
         std::tie(drv_was_cached, drv) = get_infos(DERIVER_GET(from.data->deriver));
-        if (settings.gcKeepDerivations) {
+        if (gcKeepDerivations) {
           register_edge(graph, from.index, drv.index);
         }
-        if (settings.gcKeepOutputs) {
+        if (gcKeepOutputs) {
           register_edge(graph, drv.index, from.index);
         }
         if (!drv_was_cached) {

@@ -48,7 +48,9 @@ fn main() {
         "-std=c++14"
     };
     builder.flag(standard);
-    let version = if nix_version >= v("2.31") {
+    let version = if nix_version >= v("2.34") {
+        234usize
+    } else if nix_version >= v("2.31") {
         231usize
     } else if nix_version >= v("2.28") {
         228usize
