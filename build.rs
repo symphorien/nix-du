@@ -38,7 +38,9 @@ fn main() {
     if flavor == "lix" {
         builder.define("NIX_IS_ACTUALLY_LIX", "1");
     }
-    let standard = if nix_version >= v("2.15") {
+    let standard = if nix_version >= v("2.31") {
+        "-std=c++23"
+    } else if nix_version >= v("2.15") {
         "-std=c++20" // for __VA_OPT__ in <nix/comparator.hh>
     } else if nix_version >= v("2.3") {
         "-std=c++17"
@@ -46,7 +48,9 @@ fn main() {
         "-std=c++14"
     };
     builder.flag(standard);
-    let version = if nix_version >= v("2.28") {
+    let version = if nix_version >= v("2.31") {
+        231usize
+    } else if nix_version >= v("2.28") {
         228usize
     } else if nix_version >= v("2.26") {
         226usize
