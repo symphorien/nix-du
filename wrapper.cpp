@@ -26,7 +26,11 @@
 #  include <functional>
 namespace nix {
 void initNix();
+#if NIXVER >= 294
+int handleExceptions(const std::string & programName, std::function<int()> fun);
+#else
 int handleExceptions(const std::string & programName, std::function<void()> fun);
+#endif
 }
 
 #  include <lix/libstore/local-store.hh>
@@ -34,6 +38,10 @@ int handleExceptions(const std::string & programName, std::function<void()> fun)
 #  include <lix/libstore/gc-store.hh>
 #  include <lix/libstore/store-cast.hh>
 #  define findroots(store) require<GcStore>(*store).findRoots(false)
+
+#if NIXVER >= 293
+#define NEEDS_ASYNC 1
+#endif
 
 #else
 #  if NIXVER >= 228
@@ -111,6 +119,12 @@ int handleExceptions(const std::string & programName, std::function<void()> fun)
 #  define DERIVER_GET(d) d
 #endif
 
+#ifdef NEEDS_ASYNC
+#define unwrap_promise(promise) aio.blockOn(promise)
+#else
+#define unwrap_promise(promise) promise
+#endif
+
 #include "wrapper.hpp"
 
 extern "C" {
@@ -126,7 +140,10 @@ int populateGraph(void * graph, const char * rootPath)
   using namespace nix;
   int retcode = handleExceptions("nix-du", [graph, rootPath]() {
     initNix();
-    auto store = openStore();
+#ifdef NEEDS_ASYNC
+    AsyncIoRoot aio;
+#endif
+    auto store = unwrap_promise(openStore());
 
     std::unordered_map<PATH, Info> node_to_id;
     // Registers the node if it was not already registered, and return its path info
@@ -135,13 +152,16 @@ int populateGraph(void * graph, const char * rootPath)
       auto it = node_to_id.find(p);
       if (it == node_to_id.end()) {
         Info info = {
-            store->queryPathInfo(p).get_ptr(), // data
+            unwrap_promise(store->queryPathInfo(p)).get_ptr(), // data
             (unsigned) (node_to_id.size()),    // index
         };
         path_t entry;
         entry.is_root = 0;
         entry.size = info.data->narSize;
-#if NIXVER >= 204
+#if NIXVER >= 293 && defined(NIX_IS_ACTUALLY_LIX)
+        std::string path = store->config().storeDir + "/";
+        path.append(p.to_string());
+#elif NIXVER >= 204
         std::string path = store->storeDir + "/";
         path.append(p.to_string());
 #else
@@ -161,7 +181,7 @@ int populateGraph(void * graph, const char * rootPath)
     // initialise with either all nodes or just the root we want
     if (!rootPath) {
       // dump all the store
-      std::set<PATH> paths = store->queryAllValidPaths();
+      std::set<PATH> paths = unwrap_promise(store->queryAllValidPaths());
       std::copy(paths.begin(), paths.end(), std::back_inserter(queue));
     } else {
       // dump only the recursive closure of rootPath
@@ -171,7 +191,7 @@ int populateGraph(void * graph, const char * rootPath)
         const Path naiveRootPath(rootPath);
         const PATH rootDrv = store->followLinksToStorePath(naiveRootPath);
 #endif
-      if (!store->isValidPath(rootDrv)) {
+      if (!unwrap_promise(store->isValidPath(rootDrv))) {
         throw Error("'%s' is not a valid path", rootPath);
       }
       queue.push_back(rootDrv);
@@ -192,7 +212,7 @@ int populateGraph(void * graph, const char * rootPath)
           queue.push_back(dep);
         }
       }
-#if NIXVER >= 234
+#if NIXVER >= 234 && ! defined(NIX_IS_ACTUALLY_LIX)
       bool gcKeepOutputs = settings.getLocalSettings().getGCSettings().keepOutputs;
       bool gcKeepDerivations = settings.getLocalSettings().getGCSettings().keepDerivations;
 #else
@@ -201,7 +221,7 @@ int populateGraph(void * graph, const char * rootPath)
 #endif
       // register edges from/to drv if this path has a derivation
       if ((gcKeepOutputs || gcKeepDerivations) && (!DERIVER_IS_EMPTY(from.data->deriver))
-          && store->isValidPath(DERIVER_GET(from.data->deriver))) {
+          && unwrap_promise(store->isValidPath(DERIVER_GET(from.data->deriver)))) {
         Info drv;
         bool drv_was_cached;
         std::tie(drv_was_cached, drv) = get_infos(DERIVER_GET(from.data->deriver));
@@ -221,14 +241,14 @@ int populateGraph(void * graph, const char * rootPath)
       // register roots and add edge to corresponding store path
       unsigned index = node_to_id.size();
 #if NIXVER >= 203
-      for (auto & [storepath, links] : findroots(store)) {
+      for (auto & [storepath, links] : unwrap_promise(findroots(store))) {
         for (auto link : links) {
 #else
         for (auto root : findroots(store)) {{
           PATH link, storepath;
           std::tie(link, storepath) = root;
 #endif
-          if (store->isValidPath(storepath)) {
+          if (unwrap_promise(store->isValidPath(storepath))) {
             path_t entry;
             entry.is_root = 1;
             entry.size = link.size();
@@ -241,6 +261,9 @@ int populateGraph(void * graph, const char * rootPath)
         }
       }
     }
+#if defined(NIX_IS_ACTUALLY_LIX) && NIXVER >= 294
+        return 0;
+#endif
   });
 #if NIXVER >= 204
   restoreProcessContext();

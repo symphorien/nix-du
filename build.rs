@@ -18,10 +18,13 @@ fn main() {
         Ok(nix) => (nix, "nix"),
         Err(e) => match pkg_config::Config::new().probe("lix-main") {
             Ok(lix) => (lix, "lix"),
-            Err(e2) => {
-                eprintln!("pkg-config failed to find both nix-main and lix-main:\n{e}\n{e2}");
-                std::process::exit(1)
-            }
+            Err(e2) => match pkg_config::Config::new().probe("lix") {
+                Ok(lix) => (lix, "lix"),
+                Err(e3) => {
+                    eprintln!("pkg-config failed to find both nix-main and lix-main and lix:\n{e}\n{e2}\n{e3}");
+                    std::process::exit(1)
+                }
+            },
         },
     };
 
@@ -48,7 +51,13 @@ fn main() {
         "-std=c++14"
     };
     builder.flag(standard);
-    let version = if nix_version >= v("2.34") {
+    let version = if nix_version >= v("2.95") {
+        295usize
+    } else if nix_version >= v("2.94") {
+        294usize
+    } else if nix_version >= v("2.93") {
+        293usize
+    } else if nix_version >= v("2.34") {
         234usize
     } else if nix_version >= v("2.29") {
         229usize
@@ -110,12 +119,16 @@ fn main() {
         .expect("Couldn't write bindings!");
 
     /* must be passed as an argument to the linker *after* -lnix_adapter */
-    pkg_config::Config::new()
-        .atleast_version("2.2")
-        .probe(&format!("{flavor}-store"))
-        .unwrap();
-    pkg_config::Config::new()
-        .atleast_version("2.2")
-        .probe(&format!("{flavor}-main"))
-        .unwrap();
+    if flavor == "lix" && nix_version >= v("2.95") {
+        pkg_config::Config::new().probe("lix").unwrap();
+    } else {
+        pkg_config::Config::new()
+            .atleast_version("2.2")
+            .probe(&format!("{flavor}-store"))
+            .unwrap();
+        pkg_config::Config::new()
+            .atleast_version("2.2")
+            .probe(&format!("{flavor}-main"))
+            .unwrap();
+    }
 }

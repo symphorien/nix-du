@@ -1,4 +1,4 @@
-{ callPackage, pkgs, lib, graphviz, nix, nlohmann_json, defaultCrateOverrides, xcbuild, pkg-config, boost, darwin, stdenv, rustPlatform }:
+{ callPackage, pkgs, lib, graphviz, nix, defaultCrateOverrides, xcbuild, pkg-config, boost, darwin, stdenv, rustPlatform }:
 let
   cargo = import ./Cargo.nix {
     inherit pkgs;
@@ -7,8 +7,7 @@ let
         buildInputs = [
           boost
           nix
-          nlohmann_json
-        ];
+        ] ++ nix.buildInputs;
         nativeBuildInputs = [
           pkg-config
           rustPlatform.bindgenHook
