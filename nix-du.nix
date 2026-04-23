@@ -8,7 +8,7 @@ let
           boost
           nix
           nlohmann_json
-        ] ++ lib.optional stdenv.isDarwin darwin.apple_sdk.frameworks.Security;
+        ];
         nativeBuildInputs = [
           pkg-config
           rustPlatform.bindgenHook
