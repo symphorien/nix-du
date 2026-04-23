@@ -70,7 +70,7 @@ int handleExceptions(const std::string & programName, std::function<void()> fun)
 #  endif
 
 #  if NIXVER >= 228
-#    if NIXVER >= 231
+#    if NIXVER >= 229
 #      include <nix/store/store-open.hh>
 #      include <nix/store/globals.hh>
 #    endif

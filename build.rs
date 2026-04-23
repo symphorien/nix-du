@@ -50,8 +50,8 @@ fn main() {
     builder.flag(standard);
     let version = if nix_version >= v("2.34") {
         234usize
-    } else if nix_version >= v("2.31") {
-        231usize
+    } else if nix_version >= v("2.29") {
+        229usize
     } else if nix_version >= v("2.28") {
         228usize
     } else if nix_version >= v("2.26") {
