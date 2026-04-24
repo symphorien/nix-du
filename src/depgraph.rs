@@ -124,7 +124,7 @@ impl NodeDescription {
     /// for a store path, only shows the name
     /// for a gc root, tells if it's a per-user profile, a NixOS generation, or a lorri gc
     /// does some amount of work, so you might want to cache it.
-    pub fn name(&self) -> Cow<[u8]> {
+    pub fn name(&self) -> Cow<'_, [u8]> {
         use self::NodeDescription::*;
         lazy_static! {
             static ref STORE_PATH: regex::bytes::Regex =
@@ -327,7 +327,7 @@ impl DepNode {
         self.description.kind()
     }
 
-    pub fn name(&self) -> Cow<[u8]> {
+    pub fn name(&self) -> Cow<'_, [u8]> {
         self.description.name()
     }
 }
@@ -493,7 +493,7 @@ impl DepInfos {
     }
 
     /// Returns the iterator of roots
-    pub fn roots(&self) -> petgraph::graph::Neighbors<(), u32> {
+    pub fn roots(&self) -> petgraph::graph::Neighbors<'_, (), u32> {
         self.graph.neighbors(self.root)
     }
 

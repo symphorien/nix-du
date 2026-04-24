@@ -19,7 +19,7 @@ pub fn render<W: Write>(dependencies: &depgraph::DepInfos, w: &mut W) -> io::Res
     }
     let span = (max - min) as f64;
 
-    let scale = move |size| (((size - min) as f64) / span);
+    let scale = move |size| ((size - min) as f64) / span;
 
     let gradient = ListedColorMap::turbo();
     let textcolors: Vec<RGBColor> = [MaterialPrimary::White, MaterialPrimary::Black]
