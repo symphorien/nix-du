@@ -2171,7 +2171,7 @@ rec {
       };
       "nix-du" = rec {
         crateName = "nix-du";
-        version = "1.2.3";
+        version = "1.2.4";
         edition = "2018";
         crateBin = [
           {
