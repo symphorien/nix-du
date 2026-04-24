@@ -388,7 +388,7 @@ mod tests {
     use petgraph::visit::NodeRef;
     use rand::distr::weighted::WeightedIndex;
     use rand::distr::Distribution;
-    use rand::Rng;
+    use rand::RngExt;
     use std::collections::{self, BTreeMap, BTreeSet};
 
     /// asserts that `transform` preserves
