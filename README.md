@@ -33,7 +33,7 @@ nix-du -s=500MB | dot -Tpng > store.png
 Another option is to use an interactive viewer such as `zgrviewer`
 ```sh
 nix-du -s=500MB > store.dot
-zgrviewer store.dot
+zgrviewer -f store.dot
 ```
 
 ### Interpreting the result
